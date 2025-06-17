@@ -1,0 +1,8 @@
+requests
+pydicom
+miblab[data,dlseg]
+dbdicom
+numpy
+vreg
+matplotlib
+radiomics
