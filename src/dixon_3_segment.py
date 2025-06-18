@@ -8,10 +8,8 @@ import torch
 
 import utils
 
-datapath = os.path.join(os.getcwd(), 'build', 'Data') 
-maskpath = os.path.join(os.getcwd(), 'build', 'Masks') 
-
-
+datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data') 
+maskpath = os.path.join(os.getcwd(), 'build', 'dixon_3_segment') 
 
 
 # Set up logging
@@ -141,6 +139,9 @@ def bari():
                 i+=1
 
 
+def all():
+    leeds()
+    bari()
 
 if __name__=='__main__':
     # TODO: In DICOM Data save series description and patient name/ID to match the folder names

@@ -7,9 +7,9 @@ import dbdicom as db
 import utils
 
 
-datapath = os.path.join(os.getcwd(), 'build', 'Data')
-maskpath = os.path.join(os.getcwd(), 'build', 'Masks')
-displaypath = os.path.join(os.getcwd(), 'build', 'Display')
+datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
+maskpath = os.path.join(os.getcwd(), 'build', 'dixon_3_segment')
+displaypath = os.path.join(os.getcwd(), 'build', 'dixon_4_display')
 
 
 def bari():
@@ -40,6 +40,9 @@ def bari():
                 utils.kidney_masks_as_png(op.values, rois, png_file)
 
                 i+=1
+
+def all():
+    bari()
 
 if __name__=='__main__':
     bari()

@@ -3,7 +3,7 @@ import os
 import requests
 from requests.auth import HTTPBasicAuth
 
-path = os.path.join(os.getcwd(), 'build', 'Downloads')  
+path = os.path.join(os.getcwd(), 'build', 'dixon_1_download')  
 os.makedirs(path, exist_ok=True)
 
 # import zipfile
@@ -77,7 +77,7 @@ def download_series_by_attr_all_subjects(
     xnat_url, username, password,
     project_id,
     attr, value,
-    output_dir="xnat_downloads"
+    output_dir,
 ):
     """
     Downloads all scan series with a given attribute value from all subjects in a project.
@@ -152,7 +152,7 @@ def download_series_by_attr_all_subjects(
 def download_series_by_attr(xnat_url, username, password,
                             project_id, subject_id, 
                             attr, value,
-                            output_dir="xnat_downloads"):
+                            output_dir):
     """
     Downloads all scan series from XNAT with a given value for a specific attribute.
 
@@ -285,11 +285,16 @@ def bari_patients():
         output_dir=path,
     )
 
+def all():
+    leeds_patients()
+    leeds_volunteers()
+    bari_patients()
+
 
 if __name__=='__main__':
    
-    # leeds_patients()
-    # leeds_volunteers()
+    leeds_patients()
+    leeds_volunteers()
     bari_patients()
 
 

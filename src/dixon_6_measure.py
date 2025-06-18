@@ -13,9 +13,9 @@ import pydmr
 from radiomics import featureextractor
 from totalsegmentator.map_to_binary import class_map
 
-datapath = os.path.join(os.getcwd(), 'build', 'Data')
-maskpath = os.path.join(os.getcwd(), 'build', 'Masks')
-measurepath = os.path.join(os.getcwd(), 'build', 'Measure')
+datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
+maskpath = os.path.join(os.getcwd(), 'build', 'dixon_3_segment')
+measurepath = os.path.join(os.getcwd(), 'build', 'dixon_6_measure')
 
 # Set up logging
 logging.basicConfig(
@@ -331,6 +331,10 @@ def bari():
                     dir = os.path.join(sitemeasurepath, patient, study)
                     os.makedirs(dir, exist_ok=True)
                     pydmr.write(os.path.join(dir, f"{series}_{roi}"), dmr)
+
+
+def all():
+    bari()
 
 
 if __name__=='__main__':

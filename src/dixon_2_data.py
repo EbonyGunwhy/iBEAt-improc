@@ -6,10 +6,13 @@ import logging
 import pydicom
 import dbdicom as db
 
+downloadpath = os.path.join(os.getcwd(), 'build', 'dixon_1_download')
+datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
+
 
 # Set up logging
 logging.basicConfig(
-    filename=os.path.join(os.getcwd(), 'build', 'Data', 'error.log'),
+    filename=os.path.join(datapath, 'error.log'),
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
@@ -129,17 +132,15 @@ def bari_split_series(folder):
     shutil.rmtree(folder)
 
 
-def leeds_data_clean():
-    downloadpath = os.path.join(os.getcwd(), 'build', 'Downloads')
-    datapath = os.path.join(os.getcwd(), 'build', 'Data')
+def leeds():
     # Clean Leeds patient data
-    downloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients")
-    datapath = os.path.join(datapath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients") 
-    os.makedirs(datapath, exist_ok=True)
-    patients = [f.path for f in os.scandir(downloadpath) if f.is_dir()]
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients")
+    sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients") 
+    os.makedirs(sitedatapath, exist_ok=True)
+    patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
     for pat in patients:
         pat_id = leeds_ibeat_patient_id(os.path.basename(pat))
-        new_path = os.path.join(datapath, pat_id)
+        new_path = os.path.join(sitedatapath, pat_id)
         os.makedirs(new_path, exist_ok=True)
         for zip_series in os.scandir(pat):
             # Get the name of the zip file without extension
@@ -156,20 +157,18 @@ def leeds_data_clean():
             leeds_rename_folder(extract_to)
 
 
-def bari_data_clean():
-    downloadpath = os.path.join(os.getcwd(), 'build', 'Downloads')
-    datapath = os.path.join(os.getcwd(), 'build', 'Data')
+def bari():
     # Clean Bari patient data
-    downloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
-    datapath = os.path.join(datapath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
+    sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
     os.makedirs(datapath, exist_ok=True)
     # Loop over all patients
-    patients = [f.path for f in os.scandir(downloadpath) if f.is_dir()]
+    patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
     for pat in patients:
         # Get a standardized ID from the folder name
         pat_id = bari_ibeat_patient_id(os.path.basename(pat))
         # Create a folder with theat name in the database
-        new_path = os.path.join(datapath, pat_id)
+        new_path = os.path.join(sitedatapath, pat_id)
         os.makedirs(new_path, exist_ok=True)
         # Loop over all series
         for zip_series in os.scandir(pat):
@@ -200,12 +199,17 @@ def bari_data_clean():
                     shutil.rmtree(new_extract_to)
 
 
+def all():
+    leeds()
+    bari()
+
+
 if __name__=='__main__':
     # TODO: keep pt, study, series hierarchy in Datbase (study='baseline', 'followup')
     # write with dbdicom to keep coherent database
     
-    # leeds_data_clean()
-    bari_data_clean()
+    leeds()
+    bari()
     
 
     
