@@ -1,0 +1,16 @@
+requests
+pydicom
+miblab[data,dlseg]
+dbdicom
+numpy
+vreg
+matplotlib
+pyradiomics
+pydmr
+
+# torch with CUDA support
+# torch==2.5.1 installs CPU-only version
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.5.1+cu121
+torchvision
+torchaudio

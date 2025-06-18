@@ -159,7 +159,7 @@ def leeds_data_clean():
 def bari_data_clean():
     downloadpath = os.path.join(os.getcwd(), 'build', 'Downloads')
     datapath = os.path.join(os.getcwd(), 'build', 'Data')
-    # Clean Leeds patient data
+    # Clean Bari patient data
     downloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
     datapath = os.path.join(datapath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
     os.makedirs(datapath, exist_ok=True)
