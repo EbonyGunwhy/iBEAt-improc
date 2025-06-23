@@ -1,10 +1,27 @@
+"""
+Automatic download of DIXON data. 
+
+Notes
+-----
+
+Bari 1128_080 and 1128_086: One series each produced an empty folder 
+on the first download but the results was OK after a retry. 
+
+Bari 1128_013: unusable DIXON (1 slice) and incomplete other data
+Bari 1128_018: no DIXON and incomplete other data.
+
+"""
+
 
 import os
 import requests
 from requests.auth import HTTPBasicAuth
 
+from tqdm import tqdm
+
 path = os.path.join(os.getcwd(), 'build', 'dixon_1_download')  
 os.makedirs(path, exist_ok=True)
+
 
 # import zipfile
 # import datetime
@@ -180,7 +197,7 @@ def download_series_by_attr(xnat_url, username, password,
     r.raise_for_status()
     experiments = r.json()['ResultSet']['Result']
 
-    for exp in experiments:
+    for exp in tqdm(experiments, desc='Downloading from XNAT..'):
         exp_id = exp['ID']
         # Get all scans for this experiment
         scans_url = f"{xnat_url}/data/experiments/{exp_id}/scans?format=json"
@@ -201,11 +218,14 @@ def download_series_by_attr(xnat_url, username, password,
                 download_url = f"{xnat_url}/data/experiments/{exp_id}/scans/{scan_id}/resources/DICOM/files?format=zip"
                 out_folder = os.path.join(output_dir, project_id, subject_id, f"{exp['label']}")
                 out_path = os.path.join(out_folder, f"series_{scan_id.zfill(2)}.zip")
-                os.makedirs(out_folder, exist_ok=True)
-                r = session.get(download_url, stream=True)
-                with open(out_path, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        f.write(chunk)
+
+                # Only download data that have not yet been downloaded
+                if not os.path.exists(out_path):
+                    os.makedirs(out_folder, exist_ok=True)
+                    r = session.get(download_url, stream=True)
+                    with open(out_path, 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=8192):
+                            f.write(chunk)
 
 
 
@@ -287,15 +307,16 @@ def bari_patients():
 
 def all():
     leeds_patients()
-    leeds_volunteers()
     bari_patients()
-
+    # leeds_volunteers()
+    
 
 if __name__=='__main__':
    
     leeds_patients()
-    leeds_volunteers()
     bari_patients()
+    # leeds_volunteers()
+    
 
 
     # download_series_by_attr_all_subjects(

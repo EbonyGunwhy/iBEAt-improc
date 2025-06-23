@@ -10,12 +10,13 @@ import skimage
 import dbdicom as db
 import vreg
 import pydmr
-from radiomics import featureextractor
+# from radiomics import featureextractor
 from totalsegmentator.map_to_binary import class_map
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
 maskpath = os.path.join(os.getcwd(), 'build', 'dixon_3_segment')
 measurepath = os.path.join(os.getcwd(), 'build', 'dixon_6_measure')
+os.makedirs(measurepath, exist_ok=True)
 
 # Set up logging
 logging.basicConfig(
@@ -300,33 +301,42 @@ def radiomics_texture_features(roi_vol, img_vol, roi, img):
 
 
 def bari():
+
     sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Bari", "Bari_Patients") 
     sitemaskpath = os.path.join(maskpath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
     sitemeasurepath = os.path.join(measurepath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
-    for mask_series in tqdm(db.series(sitemaskpath), desc='Extracting metrics'):
+
+    all_mask_series = db.series(sitemaskpath)
+    for mask_series in tqdm(all_mask_series, desc='Extracting metrics'):
         vol = db.volume(mask_series)
-        dixon_dirs = [f.path for f in os.scandir(os.path.join(sitedatapath, patient)) if f.is_dir()]
-        patient, study, series = mask_series[1][0], mask_series[2][0], mask_series[3]
+        patient, study, series = mask_series[1], mask_series[2][0], mask_series[3][0]
+        
+        # for a total segmentator mask, loop over the classes
         if series.split('_')[-1] == 'totseg':
             for idx, roi in class_map['total_mr'].items():
                 mask = (vol.values==idx).astype(np.float32)
                 if np.sum(mask) > 0:
                     roi_vol = vreg.volume(mask, vol.affine)
                     dmr = {'data':{}, 'pars':{}}
+
                     # Get skimage features
                     results = volume_features(roi_vol, roi)
                     dmr['data'] = dmr['data'] | {p:v[1:] for p, v in results.items()}
                     dmr['pars'] = dmr['pars'] | {(patient, study, p):v[0] for p, v in results.items()}
-                    # Get radiomics shape features
-                    shapes = radiomics_shape_features(roi_vol, roi)
-                    dmr['data'] = dmr['data'] | {p:v[1:] for p, v in shapes.items()}
-                    dmr['pars'] = dmr['pars'] | {(patient, study, p):v[0] for p, v in shapes.items()}
-                    # Get radiomics texture features
-                    for dixon_dir in dixon_dirs:
-                        img_vol = db.volume(dixon_dir)[0]
-                        texture = radiomics_texture_features(roi_vol, img_vol, roi, os.path.basename(dixon_dir))
-                        dmr['data'] = dmr['data'] | {p:v[1:] for p, v in texture.items()}
-                        dmr['pars'] = dmr['pars'] | {(patient, study, p):v[0] for p, v in texture.items()}
+
+                    # # Get radiomics shape features
+                    # shapes = radiomics_shape_features(roi_vol, roi)
+                    # dmr['data'] = dmr['data'] | {p:v[1:] for p, v in shapes.items()}
+                    # dmr['pars'] = dmr['pars'] | {(patient, study, p):v[0] for p, v in shapes.items()}
+
+                    # # Get radiomics texture features
+                    # for img in ['out_phase', 'in_phase', 'fat', 'water']:
+                    #     img_series = [sitedatapath, patient, 'Baseline', series + '_' + img]
+                    #     img_vol = db.volume(img_series)
+                    #     texture = radiomics_texture_features(roi_vol, img_vol, roi, img)
+                    #     dmr['data'] = dmr['data'] | {p:v[1:] for p, v in texture.items()}
+                    #     dmr['pars'] = dmr['pars'] | {(patient, study, p):v[0] for p, v in texture.items()}
+
                     # Write results to file
                     dir = os.path.join(sitemeasurepath, patient, study)
                     os.makedirs(dir, exist_ok=True)
