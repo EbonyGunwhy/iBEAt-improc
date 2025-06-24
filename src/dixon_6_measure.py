@@ -1,6 +1,7 @@
 import os
 import logging
 import tempfile
+import shutil
 
 from tqdm import tqdm
 import numpy as np
@@ -10,7 +11,7 @@ import skimage
 import dbdicom as db
 import vreg
 import pydmr
-# from radiomics import featureextractor
+from radiomics import featureextractor
 from totalsegmentator.map_to_binary import class_map
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
@@ -24,6 +25,60 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+
+SHORT_NAME = {
+    'kidney_left': 'LK',
+    'kidney_right': 'RK',
+    'kidneys_both': 'BK',
+    'out_phase': 'op',
+    'in_phase': 'ip',
+    'fat': 'fi',
+    'water': 'wi',
+}
+
+def shortname(longname):
+    try:
+        return SHORT_NAME[longname]
+    except KeyError:
+        return longname
+
+
+biomarker_units = {
+    'firstorder_Energy': 'Intensity^2 units',
+    'firstorder_TotalEnergy': 'Intensity^2 units',
+    'firstorder_Entropy': 'unitless',
+    'firstorder_Kurtosis': 'unitless',
+    'firstorder_Mean': 'Intensity units',
+    'firstorder_Median': 'Intensity units',
+    'firstorder_Minimum': 'Intensity units',
+    'firstorder_Maximum': 'Intensity units',
+    'firstorder_Skewness': 'unitless',
+    'firstorder_StandardDeviation': 'Intensity units',
+    'firstorder_Variance': 'Intensity^2 units',
+    'firstorder_RootMeanSquared': 'Intensity units',
+    'shape_VoxelVolume': 'mm^3',
+    'shape_SurfaceArea': 'mm^2',
+    'shape_SurfaceVolumeRatio': '1/mm',
+    'shape_Compactness1': 'unitless',
+    'shape_Compactness2': 'unitless',
+    'shape_Sphericity': 'unitless',
+    'shape_SphericalDisproportion': 'unitless',
+    'shape_Maximum3DDiameter': 'mm',
+    'shape_MajorAxisLength': 'mm',
+    'shape_MinorAxisLength': 'mm',
+    'shape_Elongation': 'unitless',
+    'shape_Flatness': 'unitless',
+    'glcm_Contrast': 'unitless',
+    'glcm_Correlation': 'unitless',
+    'glcm_DifferenceEntropy': 'unitless',
+    'glcm_Id': 'unitless',
+    'glcm_Idm': 'unitless',
+    'glcm_Imc1': 'unitless',
+    'glcm_Imc2': 'unitless',
+    'glcm_InverseVariance': 'unitless',
+}
+
 
 
 def interpolate3d_isotropic(array, spacing, isotropic_spacing=None):
@@ -135,77 +190,79 @@ def volume_features(vol, roi):
     max_depth = np.amax(distance)
 
     # Adding a try/except around each line as some of these fail (math error) for masks with limited non-zero values
+
+    roi = shortname(roi)
     data = {}
     try:
-        data[f'{roi}_ski_surface_area'] = [surface_area/100, f'Surface area ({roi})', 'cm^2', 'float']
+        data[f'{roi}-shape-ski_surface_area'] = [surface_area/100, f'Surface area ({roi})', 'cm^2', 'float']
     except Exception as e:
         logging.error(f"Error computing surface area ({roi}): {e}")
     try:
-        data[f'{roi}_ski_volume'] = [volume/1000, f'Volume ({roi})', 'mL', 'float']
+        data[f'{roi}-shape-ski_volume'] = [volume/1000, f'Volume ({roi})', 'mL', 'float']
     except Exception as e:
         logging.error(f"Error computing Volume ({roi}): {e}")
     try:
-        data[f'{roi}_ski_bounding_box_volume'] = [region_props_3D['area_bbox']*isotropic_voxel_volume/1000, f'Bounding box volume ({roi})', 'mL', 'float']
+        data[f'{roi}-shape-ski_bounding_box_volume'] = [region_props_3D['area_bbox']*isotropic_voxel_volume/1000, f'Bounding box volume ({roi})', 'mL', 'float']
     except Exception as e:
         logging.error(f"Error computing Bounding box volume ({roi}): {e}")
     try:
-        data[f'{roi}_ski_convex_hull_volume'] = [region_props_3D['area_convex']*isotropic_voxel_volume/1000, f'Convex hull volume ({roi})', 'mL', 'float']
+        data[f'{roi}-shape-ski_convex_hull_volume'] = [region_props_3D['area_convex']*isotropic_voxel_volume/1000, f'Convex hull volume ({roi})', 'mL', 'float']
     except Exception as e:
         logging.error(f"Error computing Convex hull volume ({roi}): {e}")
     try:
-        data[f'{roi}_ski_volume_of_holes'] = [(region_props_3D['area_filled']-region_props_3D['area'])*isotropic_voxel_volume/1000, f'Volume of holes ({roi})', 'mL', 'float']
+        data[f'{roi}-shape-ski_volume_of_holes'] = [(region_props_3D['area_filled']-region_props_3D['area'])*isotropic_voxel_volume/1000, f'Volume of holes ({roi})', 'mL', 'float']
     except Exception as e:
         logging.error(f"Error computing Volume of holes ({roi}): {e}")
     try:
-        data[f'{roi}_ski_extent'] = [region_props_3D['extent']*100, f'Extent ({roi})', '%', 'float']    # Percentage of bounding box filled
+        data[f'{roi}-shape-ski_extent'] = [region_props_3D['extent']*100, f'Extent ({roi})', '%', 'float']    # Percentage of bounding box filled
     except Exception as e:
         logging.error(f"Error computing Extent ({roi}): {e}")
     try:
-        data[f'{roi}_ski_solidity'] = [region_props_3D['solidity']*100, f'Solidity ({roi})', '%', 'float']   # Percentage of convex hull filled
+        data[f'{roi}-shape-ski_solidity'] = [region_props_3D['solidity']*100, f'Solidity ({roi})', '%', 'float']   # Percentage of convex hull filled
     except Exception as e:
         logging.error(f"Error computing Solidity ({roi}): {e}")
     try:
-        data[f'{roi}_ski_compactness'] = [compactness, f'Compactness ({roi})', '%', 'float']
+        data[f'{roi}-shape-ski_compactness'] = [compactness, f'Compactness ({roi})', '%', 'float']
     except Exception as e:
         logging.error(f"Error computing Compactness ({roi}): {e}")
     try:
-        data[f'{roi}_ski_long_axis_length'] = [region_props_3D['axis_major_length']*isotropic_spacing/10, f'Long axis length ({roi})', 'cm', 'float']
+        data[f'{roi}-shape-ski_long_axis_length'] = [region_props_3D['axis_major_length']*isotropic_spacing/10, f'Long axis length ({roi})', 'cm', 'float']
     except Exception as e:
         logging.error(f"Error computing Long axis length ({roi}): {e}")
     try:
-        data[f'{roi}_ski_short_axis_length'] = [region_props_3D['axis_minor_length']*isotropic_spacing/10, f'Short axis length ({roi})', 'cm', 'float']
+        data[f'{roi}-shape-ski_short_axis_length'] = [region_props_3D['axis_minor_length']*isotropic_spacing/10, f'Short axis length ({roi})', 'cm', 'float']
     except Exception as e:
         logging.error(f"Error computing Short axis length ({roi}): {e}")
     try:
-        data[f'{roi}_ski_equivalent_diameter'] = [region_props_3D['equivalent_diameter_area']*isotropic_spacing/10, f'Equivalent diameter ({roi})', 'cm', 'float']
+        data[f'{roi}-shape-ski_equivalent_diameter'] = [region_props_3D['equivalent_diameter_area']*isotropic_spacing/10, f'Equivalent diameter ({roi})', 'cm', 'float']
     except Exception as e:
         logging.error(f"Error computing Equivalent diameter ({roi}): {e}")
     try:
-        data[f'{roi}_ski_maximum_depth'] = [max_depth*isotropic_spacing/10, f'Maximum depth ({roi})', 'cm', 'float']
+        data[f'{roi}-shape-ski_maximum_depth'] = [max_depth*isotropic_spacing/10, f'Maximum depth ({roi})', 'cm', 'float']
     except Exception as e:
         logging.error(f"Error computing Maximum depth ({roi}): {e}")
     try:
-        data[f'{roi}_ski_primary_moment_of_inertia'] = [region_props_3D['inertia_tensor_eigvals'][0]*isotropic_spacing**2/100, f'Primary moment of inertia ({roi})', 'cm^2', 'float']
+        data[f'{roi}-shape-ski_primary_moment_of_inertia'] = [region_props_3D['inertia_tensor_eigvals'][0]*isotropic_spacing**2/100, f'Primary moment of inertia ({roi})', 'cm^2', 'float']
     except Exception as e:
         logging.error(f"Error computing Primary moment of inertia ({roi}): {e}")
     try:
-        data[f'{roi}_ski_second_moment_of_inertia'] = [region_props_3D['inertia_tensor_eigvals'][1]*isotropic_spacing**2/100, f'Second moment of inertia ({roi})', 'cm^2', 'float']
+        data[f'{roi}-shape-ski_second_moment_of_inertia'] = [region_props_3D['inertia_tensor_eigvals'][1]*isotropic_spacing**2/100, f'Second moment of inertia ({roi})', 'cm^2', 'float']
     except Exception as e:
         logging.error(f"Error computing Second moment of inertia ({roi}): {e}")
     try:
-        data[f'{roi}_ski_third_moment_of_inertia'] = [region_props_3D['inertia_tensor_eigvals'][2]*isotropic_spacing**2/100, f'Third moment of inertia ({roi})', 'cm^2', 'float']
+        data[f'{roi}-shape-ski_third_moment_of_inertia'] = [region_props_3D['inertia_tensor_eigvals'][2]*isotropic_spacing**2/100, f'Third moment of inertia ({roi})', 'cm^2', 'float']
     except Exception as e:
         logging.error(f"Error computing Third moment of inertia ({roi}): {e}")
     try:
-        data[f'{roi}_ski_mean_moment_of_inertia'] = [m*isotropic_spacing**2/100, f'Mean moment of inertia ({roi})', 'cm^2', 'float']
+        data[f'{roi}-shape-ski_mean_moment_of_inertia'] = [m*isotropic_spacing**2/100, f'Mean moment of inertia ({roi})', 'cm^2', 'float']
     except Exception as e:
         logging.error(f"Error computing Mean moment of inertia ({roi}): {e}")
     try:
-        data[f'{roi}_ski_fractional_anisotropy_of_inertia'] = [100*FA, f'Fractional anisotropy of inertia ({roi})', '%', 'float']
+        data[f'{roi}-shape-ski_fractional_anisotropy_of_inertia'] = [100*FA, f'Fractional anisotropy of inertia ({roi})', '%', 'float']
     except Exception as e:
         logging.error(f"Error computing Fractional anisotropy of inertia ({roi}): {e}")
     try:
-        data[f'{roi}_ski_volume_qc'] = [region_props_3D['area']*isotropic_voxel_volume/1000, f'Volume QC ({roi})', 'mL', 'float']
+        data[f'{roi}-shape-ski_volume_qc'] = [region_props_3D['area']*isotropic_voxel_volume/1000, f'Volume QC ({roi})', 'mL', 'float']
     except Exception as e:
         logging.error(f"Error computing Volume QC ({roi}): {e}")
     # Taking this out for now - computation uses > 32GB of memory for large masks
@@ -214,90 +271,72 @@ def volume_features(vol, roi):
     return data
 
 
-biomarker_units = {
-    'firstorder_Energy': 'Intensity^2 units',
-    'firstorder_TotalEnergy': 'Intensity^2 units',
-    'firstorder_Entropy': 'unitless',
-    'firstorder_Kurtosis': 'unitless',
-    'firstorder_Mean': 'Intensity units',
-    'firstorder_Median': 'Intensity units',
-    'firstorder_Minimum': 'Intensity units',
-    'firstorder_Maximum': 'Intensity units',
-    'firstorder_Skewness': 'unitless',
-    'firstorder_StandardDeviation': 'Intensity units',
-    'firstorder_Variance': 'Intensity^2 units',
-    'firstorder_RootMeanSquared': 'Intensity units',
-    'shape_VoxelVolume': 'mm^3',
-    'shape_SurfaceArea': 'mm^2',
-    'shape_SurfaceVolumeRatio': '1/mm',
-    'shape_Compactness1': 'unitless',
-    'shape_Compactness2': 'unitless',
-    'shape_Sphericity': 'unitless',
-    'shape_SphericalDisproportion': 'unitless',
-    'shape_Maximum3DDiameter': 'mm',
-    'shape_MajorAxisLength': 'mm',
-    'shape_MinorAxisLength': 'mm',
-    'shape_Elongation': 'unitless',
-    'shape_Flatness': 'unitless',
-    'glcm_Contrast': 'unitless',
-    'glcm_Correlation': 'unitless',
-    'glcm_DifferenceEntropy': 'unitless',
-    'glcm_Id': 'unitless',
-    'glcm_Idm': 'unitless',
-    'glcm_Imc1': 'unitless',
-    'glcm_Imc2': 'unitless',
-    'glcm_InverseVariance': 'unitless',
-}
 
-def get_feature_class(feature_name):
-    """Helper to extract feature class from full feature name."""
-    if feature_name.startswith('original_'):
-        feature_name = feature_name[len('original_'):]
-    return feature_name.split('_')[0]
-    
+
+       
+
 def radiomics_shape_features(roi_vol, roi):
-    with tempfile.TemporaryDirectory(dir=os.getcwd()) as temp_folder:
-        roi_file = os.path.join(temp_folder, 'roi.nii.gz')
-        vreg.write_nifti(roi_vol, roi_file)
-        # All features for water
-        extractor = featureextractor.RadiomicsFeatureExtractor()
-        extractor.disableAllFeatures()
-        extractor.enableFeatureClassByName('shape')
-        result = extractor.execute(roi_file, roi_file)
+    tmp = os.path.join(os.getcwd(), 'tmp')
+    os.makedirs(tmp, exist_ok=True)
+    roi_file = os.path.join(tmp, 'roi.nii.gz')
+    img_file = os.path.join(tmp, 'img.nii.gz') # dummy
+    vreg.write_nifti(roi_vol, roi_file)
+    vreg.write_nifti(roi_vol, img_file)
+    # All features for water
+    extractor = featureextractor.RadiomicsFeatureExtractor()
+    extractor.disableAllFeatures()
+    extractor.enableFeatureClassByName('shape')
+    result = extractor.execute(img_file, roi_file)
+    shutil.rmtree(tmp)
+    # Format return value
+    rval = {}
+    for p, v in result.items():
+        if p[:8]=='original':
+            name = shortname(roi) + '-' + p.replace('original_shape_', 'shape-')
+            vals = [float(v), name, 'unit', 'float']
+            rval[name] = vals
+    return rval
 
 
 def radiomics_texture_features(roi_vol, img_vol, roi, img):
-    # Shape and texture
-    all_features = []
-    with tempfile.TemporaryDirectory(dir=os.getcwd()) as temp_folder:
-        roi_file = os.path.join(temp_folder, 'roi.nii.gz')
-        img_file = os.path.join(temp_folder, 'img.nii.gz')
-        vreg.write_nifti(roi_vol, roi_file)
-        vreg.write_nifti(img_vol, img_file)
-        # All features for water
-        extractor = featureextractor.RadiomicsFeatureExtractor()
-        extractor.disableAllFeatures()
-        extractor.enableFeatureClassByName('shape')
-        result = extractor.execute(img_file, roi_file)
-        # Format for export
-        for key, value in result.items():
-            if key.startswith('diagnostics_'):
-                continue
-            feature_class = get_feature_class(key)
-            biomarker_name = key.replace('original_', '')
-            unit = biomarker_units.get(biomarker_name, 'unitless')
+    tmp = os.path.join(os.getcwd(), 'tmp')
+    os.makedirs(tmp, exist_ok=True)
+    roi_file = os.path.join(tmp, 'roi.nii.gz')
+    img_file = os.path.join(tmp, 'img.nii.gz')
+    print('radiomics texture', roi)
+    # Downsample large ROIs to avoid memory over
+    # TODO: Not enough for large regions - still RAM issue
+    roi_vol_box = roi_vol.crop(mask=roi_vol) # some edits in vreg. Check
+    img_vol_box = img_vol.crop(mask=roi_vol)
+    # roi_vol_box = roi_vol_box.resample(5.0)
+    # img_vol_box = img_vol_box.resample(5.0)
+    vreg.write_nifti(roi_vol_box, roi_file)
+    vreg.write_nifti(img_vol_box, img_file)
+    # All features for water
+    extractor = featureextractor.RadiomicsFeatureExtractor()
+    extractor.disableAllFeatures()
+    # TODO: try without first order
+    classes = ['firstorder', 'glcm', 'glrlm', 'glszm', 'gldm', 'ngtdm']
+    for cl in classes:
+        extractor.enableFeatureClassByName(cl)
+    # extractor.enableImageTypeByName('Wavelet')
+    # extractor.enableImageTypeByName('LoG', {'sigma': [1.0, 1.0, 1.0]}) 
+    # extractor.enableImageTypeByName('Gradient')
+    result = extractor.execute(img_file, roi_file)
+    shutil.rmtree(tmp)
+    # Format return value
+    rval = {}
+    for p, v in result.items():
+        if p[:8] == 'original':
+            name = shortname(roi) + '-' + shortname(img) + '-' 
+            for cl in classes:
+                if cl in p:
+                    name += p.replace(f'original_{cl}_', f'{cl}-')
+                    break
+            vals = [float(v), name, 'unit', 'float']
+            rval[name] = vals
+    return rval
 
-            biomarker_label = roi + '-' + (
-                key if feature_class == 'shape'
-                else key + '-' + img
-            )
-            all_features.append({
-                'Parameter': key,
-                'Value': value,
-                'Unit': unit,
-                'Biomarker': biomarker_label,
-                'StudyDescription': 'PyRadiomics-' + feature_class
-            })
 
 
 def bari():
@@ -309,43 +348,101 @@ def bari():
     all_mask_series = db.series(sitemaskpath)
     for mask_series in tqdm(all_mask_series, desc='Extracting metrics'):
         vol = db.volume(mask_series)
-        patient, study, series = mask_series[1], mask_series[2][0], mask_series[3][0]
-        
-        # for a total segmentator mask, loop over the classes
-        if series.split('_')[-1] == 'totseg':
-            for idx, roi in class_map['total_mr'].items():
-                mask = (vol.values==idx).astype(np.float32)
-                if np.sum(mask) > 0:
-                    roi_vol = vreg.volume(mask, vol.affine)
-                    dmr = {'data':{}, 'pars':{}}
+        patient, series = mask_series[1], mask_series[3][0]
+        dir = os.path.join(sitemeasurepath, patient)
+        os.makedirs(dir, exist_ok=True)
 
-                    # Get skimage features
-                    results = volume_features(roi_vol, roi)
-                    dmr['data'] = dmr['data'] | {p:v[1:] for p, v in results.items()}
-                    dmr['pars'] = dmr['pars'] | {(patient, study, p):v[0] for p, v in results.items()}
+        class_maps = {
+            'totseg': class_map['total_mr'],
+            'nnunet': {1: "kidney_left", 2: "kidney_right"},
+            'unetr': {1: "kidney_left", 2: "kidney_right"},
+        }
+        model = series.split('_')[-1]
 
-                    # # Get radiomics shape features
-                    # shapes = radiomics_shape_features(roi_vol, roi)
-                    # dmr['data'] = dmr['data'] | {p:v[1:] for p, v in shapes.items()}
-                    # dmr['pars'] = dmr['pars'] | {(patient, study, p):v[0] for p, v in shapes.items()}
+        # Loop over the classes
+        for idx, roi in class_maps[model].items():
+            mask = (vol.values==idx).astype(np.float32)
+            if np.sum(mask) == 0:
+                continue
+            dmr_file = os.path.join(dir, f"{series}_{roi}")
+            if os.path.exists(f'{dmr_file}.dmr.zip'):
+                continue
+            roi_vol = vreg.volume(mask, vol.affine)
+            dmr = {'data':{}, 'pars':{}}
 
-                    # # Get radiomics texture features
-                    # for img in ['out_phase', 'in_phase', 'fat', 'water']:
-                    #     img_series = [sitedatapath, patient, 'Baseline', series + '_' + img]
-                    #     img_vol = db.volume(img_series)
-                    #     texture = radiomics_texture_features(roi_vol, img_vol, roi, img)
-                    #     dmr['data'] = dmr['data'] | {p:v[1:] for p, v in texture.items()}
-                    #     dmr['pars'] = dmr['pars'] | {(patient, study, p):v[0] for p, v in texture.items()}
+            # Get skimage features
+            results = volume_features(roi_vol, roi)
+            dmr['data'] = dmr['data'] | {p: v[1:] for p, v in results.items()}
+            dmr['pars'] = dmr['pars'] | {(patient, 'Baseline', p): v[0] for p, v in results.items()}
 
-                    # Write results to file
-                    dir = os.path.join(sitemeasurepath, patient, study)
-                    os.makedirs(dir, exist_ok=True)
-                    pydmr.write(os.path.join(dir, f"{series}_{roi}"), dmr)
+            # Get radiomics shape features
+            results = radiomics_shape_features(roi_vol, roi)
+            dmr['data'] = dmr['data'] | {p:v[1:] for p, v in results.items()}
+            dmr['pars'] = dmr['pars'] | {(patient, 'Baseline', p): v[0] for p, v in results.items()}
+
+            # Get radiomics texture features
+            if roi in ['kidney_left', 'kidney_right']: # computational issues with larger ROIs. Exclude for now
+                for img in ['out_phase', 'in_phase', 'fat', 'water']:
+                    img_series = [sitedatapath, patient, 'Baseline', series[:-len(model)] + img]
+                    try:
+                        img_vol = db.volume(img_series)
+                    except:
+                        pass # series does not exist
+                    else:
+                        results = radiomics_texture_features(roi_vol, img_vol, roi, img)
+                        dmr['data'] = dmr['data'] | {p:v[1:] for p, v in results.items()}
+                        dmr['pars'] = dmr['pars'] | {(patient, 'Baseline', p): v[0] for p, v in results.items()}
+
+            # Write results to file
+            pydmr.write(dmr_file, dmr)
+
+        # Both kidneys texture
+        class_index = {roi:idx for idx,roi in class_maps[model].items()}
+        lk_mask = (vol.values==class_index['kidney_left']).astype(np.float32)
+        rk_mask = (vol.values==class_index['kidney_right']).astype(np.float32)
+        roi = 'kidneys_both'
+        mask = lk_mask + rk_mask
+        if np.sum(mask) == 0:
+            continue
+        dmr_file = os.path.join(dir, f"{series}_{roi}")
+        if os.path.exists(dmr_file):
+            continue
+        roi_vol = vreg.volume(mask, vol.affine)
+        dmr = {'data':{}, 'pars':{}}
+
+        # Get radiomics texture features
+        for img in ['out_phase', 'in_phase', 'fat', 'water']:
+            img_series = [sitedatapath, patient, 'Baseline', series[:-len(model)] + img]
+            try:
+                img_vol = db.volume(img_series)
+            except:
+                pass # series does not exist
+            else:
+                results = radiomics_texture_features(roi_vol, img_vol, roi, img)
+                dmr['data'] = dmr['data'] | {p:v[1:] for p, v in results.items()}
+                dmr['pars'] = dmr['pars'] | {(patient, 'Baseline', p): v[0] for p, v in results.items()}
+
+        # Write results to file
+        pydmr.write(dmr_file, dmr)
+
+
+def bari_concat():
+    sitemeasurepath = os.path.join(measurepath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
+    # Concatenate all dmr files of each subject
+    patients = [f.path for f in os.scandir(sitemeasurepath) if f.is_dir()]
+    for patient in patients:
+        dir = os.path.join(sitemeasurepath, patient)
+        dmr_files = [f for f in os.listdir(dir) if f.endswith('.dmr.zip')]
+        dmr_files = [os.path.join(dir, f) for f in dmr_files]
+        dmr_file = os.path.join(sitemeasurepath, f'{patient}_results')
+        pydmr.concat(dmr_files, dmr_file)
 
 
 def all():
     bari()
+    bari_concat()
 
 
 if __name__=='__main__':
-    bari()
+    #bari()
+    bari_concat() # need to make separate folders per Dixon mask

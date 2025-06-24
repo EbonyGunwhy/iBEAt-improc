@@ -1,5 +1,6 @@
 import os
 import logging
+import shutil
 
 import numpy as np
 import matplotlib
@@ -8,6 +9,8 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from totalsegmentator.map_to_binary import class_map
 import dbdicom as db
+import imageio.v2 as imageio  # Use v2 interface for compatibility
+from moviepy import VideoFileClip
 
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
@@ -26,20 +29,88 @@ logging.basicConfig(
 def get_distinct_colors(n, colormap='jet'):
     #cmap = cm.get_cmap(colormap, n)
     cmap = matplotlib.colormaps[colormap]
-    colors = [cmap(i)[:3] + (0.6,) for i in np.linspace(0, 1, n)]  # Set alpha to 0.5 for transparency
+    colors = [cmap(i)[:3] + (0.6,) for i in np.linspace(0, 1, n)]  # Set alpha to 0.6 for transparency
     return colors
 
 
-def total_masks_as_png(img, rois, file):
+def animation_model(img, rois, file):
 
     # Define RGBA colors (R, G, B, Alpha) — alpha controls transparency
-    colors = get_distinct_colors(len(rois), colormap='tab20')
+    if len(rois)==1:
+        colors = [[255, 0, 0, 0.6]]
+    elif len(rois)==2:
+        colors = [[0, 255, 0, 0.6], [255, 0, 0, 0.6]]
+    else:
+        colors = get_distinct_colors(len(rois), colormap='tab20')
+
+    # Directory to store temporary frames
+    tmp = os.path.join(os.getcwd(), 'tmp')
+    os.makedirs(tmp, exist_ok=True)
+    filenames = []
+
+    # Generate and save a sequence of plots
+    for i in tqdm(range(img.shape[2]), desc='Building animation..'):
+
+        # Set up figure
+        fig, ax = plt.subplots(
+            figsize=(5, 5),
+            dpi=300,
+        )
+
+        # Display the background image
+        ax.imshow(img[:,:,i].T, cmap='gray', interpolation='none', vmin=0, vmax=np.mean(img) + 2 * np.std(img))
+
+        # Overlay each mask
+        for mask, color in zip([m.astype(bool) for m in rois.values()], colors):
+            rgba = np.zeros((img.shape[0], img.shape[1], 4), dtype=float)
+            for c in range(4):  # RGBA
+                rgba[..., c] = mask[:,:,i] * color[c]
+            ax.imshow(rgba.transpose((1,0,2)), interpolation='none')
+
+        # Save eachg image to a tmp file
+        fname = os.path.join(tmp, f'frame_{i}.png')
+        fig.savefig(fname)
+        filenames.append(fname)
+        plt.close(fig)
+
+    # Create GIF
+    print('Creating movie')
+    gif = os.path.join(tmp, 'movie.gif')
+    with imageio.get_writer(gif, mode="I", duration=0.2) as writer:
+        for fname in filenames:
+            image = imageio.imread(fname)
+            writer.append_data(image)
+
+    # Load gif
+    clip = VideoFileClip(gif)
+
+    # Save as MP4
+    clip.write_videofile(file, codec='libx264')
+
+    # Clean up temporary files
+    shutil.rmtree(tmp)
+
+
+def mosaic_model(img, rois, file):
+
+    # Define RGBA colors (R, G, B, Alpha) — alpha controls transparency
+    if len(rois)==1:
+        colors = [[255, 0, 0, 0.6]]
+    elif len(rois)==2:
+        colors = [[255, 0, 0, 0.6], [0, 255, 0, 0.6]]
+    else:
+        colors = get_distinct_colors(len(rois), colormap='tab20')
 
     num_row_cols = int(np.ceil(np.sqrt(img.shape[2])))
 
     #fig, ax = plt.subplots(nrows=num_row_cols, ncols=num_row_cols, gridspec_kw = {'wspace':0, 'hspace':0}, figsize=(10,10), dpi=300)
-    fig, ax = plt.subplots(nrows=num_row_cols, ncols=num_row_cols, gridspec_kw = {'wspace':0, 'hspace':0}, figsize=(num_row_cols,num_row_cols))
-
+    fig, ax = plt.subplots(
+        nrows=num_row_cols, 
+        ncols=num_row_cols, 
+        gridspec_kw = {'wspace':0, 'hspace':0}, 
+        figsize=(num_row_cols, num_row_cols),
+        dpi=300,
+    )
     i=0
     for row in tqdm(ax, desc='Building png'):
         for col in row:
@@ -63,67 +134,31 @@ def total_masks_as_png(img, rois, file):
 
             i = i +1 
 
-    fig.suptitle('TotalSegmentatorMask', fontsize=14)
-    fig.savefig(file, dpi=600)
-    #plt.savefig(file)
-    plt.close()
-
-
-def kidney_masks_as_png(img, rois, file):
-
-    LK = rois['kidney_left'].astype(float)
-    RK = rois['kidney_right'].astype(float)
-
-    img = img.transpose((1,0,2))
-    LK = LK.transpose((1,0,2))
-    RK = RK.transpose((1,0,2))
-
-    LK[LK >0.5] = 1
-    LK[LK <0.5] = np.nan
-
-    RK[RK >0.5] = 1
-    RK[RK <0.5] = np.nan
-    
-    num_row_cols = int(np.ceil(np.sqrt(LK.shape[2])))
-
-    #fig, ax = plt.subplots(nrows=num_row_cols, ncols=num_row_cols,gridspec_kw = {'wspace':0, 'hspace':0},figsize=(10,10), dpi=100)
-    fig, ax = plt.subplots(nrows=num_row_cols, ncols=num_row_cols,gridspec_kw = {'wspace':0, 'hspace':0},figsize=(num_row_cols,num_row_cols))
-    i=0
-    for row in ax:
-        for col in row:
-            if i>=LK.shape[2]:
-                col.set_xticklabels([])
-                col.set_yticklabels([])
-                col.set_aspect('equal')
-                col.axis("off")
-            else:  
-            
-                # Display the background image
-                col.imshow(img[:,:,i], cmap='gray', interpolation='none', vmin=0, vmax=np.mean(img) + 2 * np.std(img))
-            
-                # Overlay the mask with transparency
-                col.imshow(LK[:,:,i], cmap='autumn', interpolation='none', alpha=0.5)
-                col.imshow(RK[:,:,i], cmap='summer', interpolation='none', alpha=0.5)
-
-                col.set_xticklabels([])
-                col.set_yticklabels([])
-                col.set_aspect('equal')
-                col.axis("off")
-            i = i +1 
-
     fig.suptitle('AutoMask', fontsize=14)
-    fig.savefig(file, dpi=600)
+    fig.savefig(file)
     #plt.savefig(file)
     plt.close()
 
 
-def mosaic(sitedatapath, sitemaskpath, sitedisplaypath):
+
+def overlay(sitedatapath, sitemaskpath, sitedisplaypath, 
+            kidney=False, all=False, liver_pancreas=False, movie=False, 
+            mosaic=False):
 
     # Build output folders
-    display_all = os.path.join(displaypath, sitedisplaypath, 'Mask_overlay_all')
-    display_kidneys = os.path.join(displaypath, sitedisplaypath, 'Mask_overlay_kidneys')
+    display_all = os.path.join(displaypath, sitedisplaypath, 'Mosaic_all')
+    display_kidneys = os.path.join(displaypath, sitedisplaypath, 'Mosaic_kidneys')
+    display_liver_pancreas = os.path.join(displaypath, sitedisplaypath, 'Mosaic_liver_pancreas')
     os.makedirs(display_all, exist_ok=True)
     os.makedirs(display_kidneys, exist_ok=True)
+    os.makedirs(display_liver_pancreas, exist_ok=True)
+    movies_all = os.path.join(displaypath, sitedisplaypath, 'Movies_all')
+    movies_kidneys = os.path.join(displaypath, sitedisplaypath, 'Movies_kidneys')
+    movies_liver_pancreas = os.path.join(displaypath, sitedisplaypath, 'Movies_liver_pancreas')
+    os.makedirs(movies_all, exist_ok=True)
+    os.makedirs(movies_kidneys, exist_ok=True)
+    os.makedirs(movies_liver_pancreas, exist_ok=True)
+
 
     class_maps = {
         'totseg': class_map['total_mr'],
@@ -139,9 +174,7 @@ def mosaic(sitedatapath, sitemaskpath, sitedisplaypath):
         mask_dixon_desc = mask[-1][0]
 
         # Find model from series description
-        for model in class_maps.keys():
-            if mask_dixon_desc[-len(model):]==model:
-                break
+        model = mask_dixon_desc.split('_')[-1]
 
         # Get opposed phase series
         mask_dixon = mask_dixon_desc[:-len(model)]
@@ -153,28 +186,62 @@ def mosaic(sitedatapath, sitemaskpath, sitedisplaypath):
         rois = {}
         for idx, roi in class_maps[model].items():
             rois[roi] = (mask_arr==idx).astype(np.int16)
+
+        # Build movie (kidneys only)
+        if kidney and movie:
+            file = os.path.join(movies_kidneys, f'{patient_id}_{mask_dixon}{model}_kidneys.mp4')
+            if not os.path.exists(file):
+                rois_k = {k:v for k, v in rois.items() if k in ["kidney_left", "kidney_right"]}
+                animation_model(op_arr, rois_k, file)
+
+        # Build movie (all ROIS)
+        if model == 'totseg':
+            if all and movie:
+                file = os.path.join(movies_all, f'{patient_id}_{mask_dixon}{model}_all.mp4')
+                if not os.path.exists(file):
+                    animation_model(op_arr, rois, file)
+            if liver_pancreas and movie:
+                file = os.path.join(movies_liver_pancreas, f'{patient_id}_{mask_dixon}{model}_pancreas_liver.mp4')
+                if not os.path.exists(file):
+                    rois_pl = {k:v for k, v in rois.items() if k in ["pancreas", "liver"]}
+                    animation_model(op_arr, rois_pl, file)
         
-        # Build display
-        png_file = os.path.join(display_all, f'{patient_id}_{mask_dixon}{model}_all.png')
-        if not os.path.exists(png_file):
-            total_masks_as_png(op_arr, rois, png_file)
-        png_file = os.path.join(display_kidneys, f'{patient_id}_{mask_dixon}{model}_kidneys.png')
-        if not os.path.exists(png_file):
-            kidney_masks_as_png(op_arr, rois, png_file)
+        # Build mosaic (kidneys only)
+        if kidney and mosaic:
+            png_file = os.path.join(display_kidneys, f'{patient_id}_{mask_dixon}{model}_kidneys.png')
+            if not os.path.exists(png_file):
+                rois_k = {k:v for k, v in rois.items() if k in ["kidney_left", "kidney_right"]}
+                mosaic_model(op_arr, rois_k, png_file)
+
+        # Build mosaic (all ROIS)
+        if model == 'totseg':
+            if all and mosaic:
+                png_file = os.path.join(display_all, f'{patient_id}_{mask_dixon}{model}_all.png')
+                if not os.path.exists(png_file):
+                    mosaic_model(op_arr, rois, png_file)
+            if liver_pancreas and mosaic:
+                png_file = os.path.join(display_liver_pancreas, f'{patient_id}_{mask_dixon}{model}_pancreas_liver.png')
+                if not os.path.exists(png_file):
+                    rois_pl = {k:v for k, v in rois.items() if k in ["pancreas", "liver"]}
+                    mosaic_model(op_arr, rois_pl, png_file)
+
+
 
 
 def leeds():
     sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients") 
     sitemaskpath = os.path.join(maskpath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients")
     sitedisplaypath = os.path.join(displaypath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients")
-    mosaic(sitedatapath, sitemaskpath, sitedisplaypath)
+    #overlay(sitedatapath, sitemaskpath, sitedisplaypath, kidney=True, mosaic=True)
+    overlay(sitedatapath, sitemaskpath, sitedisplaypath, all=True, mosaic=True)
 
 
 def bari():
     sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Bari", "Bari_Patients") 
     sitemaskpath = os.path.join(maskpath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
     sitedisplaypath = os.path.join(displaypath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
-    mosaic(sitedatapath, sitemaskpath, sitedisplaypath)
+    #overlay(sitedatapath, sitemaskpath, sitedisplaypath, kidney=True, mosaic=True)
+    overlay(sitedatapath, sitemaskpath, sitedisplaypath, all=True, mosaic=True)
 
 
 def all():

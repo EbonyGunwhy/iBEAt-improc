@@ -6,4 +6,5 @@ numpy
 vreg
 matplotlib
 pydmr
-#pyradiomics
+pyradiomics
+moviepy

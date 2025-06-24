@@ -61,10 +61,7 @@ def segment_site(sitedatapath, sitemaskpath):
 
         # Skip those that have been done already
         if mask_series not in db.series(mask_study):
-            if channels==2:
-                source=op
-            else:
-                source=wi
+            source=op if channels==2 else wi
             try:
                 device = 'gpu' if torch.cuda.is_available() else 'cpu'
                 rois = miblab.totseg(source, cutoff=0.01, task='total_mr', device=device)
@@ -126,7 +123,7 @@ def all():
 
 
 if __name__=='__main__':
-    # bari()
+    bari()
     leeds()
     
     
