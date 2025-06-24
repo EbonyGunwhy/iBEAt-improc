@@ -108,6 +108,7 @@ def leeds():
     sitemaskpath = os.path.join(maskpath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients")
     os.makedirs(sitemaskpath, exist_ok=True)
     segment_site(sitedatapath, sitemaskpath)
+    
 
 
 def bari():
@@ -118,7 +119,7 @@ def bari():
 
 
 def all():
-    leeds()
+    #leeds()
     bari()
 
 
