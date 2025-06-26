@@ -24,11 +24,6 @@ import shutil
 import logging
 
 from tqdm import tqdm
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-
-import numpy as np
 import pydicom
 import dbdicom as db
 
@@ -88,7 +83,13 @@ def bari_ibeat_patient_id(folder):
         return folder[4:].replace('-', '_')
     else:
         return folder[:4] + '_' + folder[4:]
-    
+
+def sheffield_ibeat_patient_id(folder):
+    id = folder[3:]
+    id = id[:4] + '_' + id[4:]
+    if id == '2178_157': # Data entry error
+        id = '7128_157'
+    return id
 
 def leeds_rename_folder(folder):
 
@@ -162,6 +163,49 @@ def leeds_add_series_name(folder, all_series:list):
     all_series.append(new_series_name)
 
 
+def sheffield_add_series_desc(folder, all_series:list):
+
+    # Read series description from file
+    file = os.listdir(folder)[0]
+    ds = pydicom.dcmread(os.path.join(folder, file))
+    original_series_desc = ds['SeriesDescription'].value
+    
+    # For Philips decide based on EchoTime - no fat-water included
+    if ds['Manufacturer'].value == 'Philips Healthcare':
+        if ds['EchoTime'].value < 2:
+            if original_series_desc == 'T1w_abdomen_dixon_cor_bh':
+                series_desc = 'Dixon_1_out_phase'
+            else:
+                series_desc = 'Dixon_post_contrast_1_out_phase'
+        else:
+            if original_series_desc == 'T1w_abdomen_dixon_cor_bh':
+                series_desc = 'Dixon_1_in_phase'
+            else:
+                series_desc = 'Dixon_post_contrast_1_in_phase'
+
+    # For GE translate descriptions to standard convention
+    else:
+        new_series_desc = {
+            'WATER: T1_abdomen_dixon_cor_bh': 'Dixon_1_water',
+            'FAT: T1_abdomen_dixon_cor_bh': 'Dixon_1_fat',
+            'InPhase: T1_abdomen_dixon_cor_bh': 'Dixon_1_in_phase',
+            'OutPhase: T1_abdomen_dixon_cor_bh': 'Dixon_1_out_phase',
+            'WATER: T1_abdomen_post_contrast_dixon_cor_bh': 'Dixon_post_contrast_1_water',
+            'FAT: T1_abdomen_post_contrast_dixon_cor_bh': 'Dixon_post_contrast_1_fat',
+            'InPhase: T1_abdomen_post_contrast_dixon_cor_bh': 'Dixon_post_contrast_1_in_phase',
+            'OutPhase: T1_abdomen_post_contrast_dixon_cor_bh': 'Dixon_post_contrast_1_out_phase',
+        }
+        series_desc = new_series_desc[original_series_desc]
+
+    # Increment counter if needed
+    new_series_desc = series_desc
+    counter = 2
+    while new_series_desc in all_series:
+        new_series_desc = series_desc.replace('_1_', f'_{counter}_')
+        counter += 1
+    all_series.append(new_series_desc)
+
+
 
 def bari_add_series_name(name, all_series:list):
 
@@ -197,77 +241,15 @@ def bari_split_series(folder):
     shutil.rmtree(folder)
 
 
-def leeds_check_fatwater_swap():
 
-    # Set up folders
-    sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients") 
-    sitepngpath = os.path.join(datapath, "BEAt-DKD-WP4-Leeds")
-    os.makedirs(sitepngpath, exist_ok=True)
-
-    # If the file exists, dont build the figure
-    file = os.path.join(sitepngpath, 'fat-water swap check.png')
-    if os.path.exists(file):
-        return
-
-    # Get out phase series
-    series = db.series(sitedatapath)
-    series_fat = [s for s in series if s[-1][0][-3:]=='fat']
-
-    # Build list of center slices
-    center_slices = []
-    for series in tqdm(series_fat, desc='Reading fat images'):
-        vol = db.volume(series)
-        center_slice = vol.values[:,:,round(vol.shape[-1]/2)]
-        center_slices.append(center_slice)
-
-    # Display center slices as mosaic
-    ncols = int(np.ceil(np.sqrt(len(center_slices))))
-    fig, ax = plt.subplots(nrows=ncols, ncols=ncols, gridspec_kw = {'wspace':0, 'hspace':0}, figsize=(10,10), dpi=300)
-
-    i=0
-    for row in tqdm(ax, desc='Building png'):
-        for col in row:
-
-            col.set_xticklabels([])
-            col.set_yticklabels([])
-            col.set_aspect('equal')
-            col.axis("off")
-
-            if i < len(center_slices):
-
-                # Show center image
-                col.imshow(
-                    center_slices[i].T, 
-                    cmap='gray', 
-                    interpolation='none', 
-                    vmin=0, 
-                    vmax=np.mean(center_slices[i]) + 2 * np.std(center_slices[i])
-                )
-                # Add white text with black background in upper-left corner
-                col.text(
-                    0.01, 0.99,                   
-                    f'{series_fat[i][1][0]} - {series_fat[i][-1]}',   
-                    color='white',
-                    fontsize=2,
-                    ha='left',
-                    va='top',
-                    transform=col.transAxes,     # Use axes coordinates
-                    bbox=dict(facecolor='black', alpha=0.7, boxstyle='round,pad=0.3')
-                )
-
-            i+=1 
-
-    fig.suptitle('FatMaps', fontsize=14)
-    fig.savefig(file)
-    plt.close()
 
 
 def leeds_054():
 
     # Clean Leeds patient 054
     pat = os.path.join(downloadpath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients", 'iBE-4128-054')
-    sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients") 
-    temp_folder = os.path.join(datapath, "BEAt-DKD-WP4-Leeds", 'tmp')
+    sitedatapath = os.path.join(datapath, "Leeds", "Patients") 
+    temp_folder = os.path.join(datapath, 'tmp')
     os.makedirs(sitedatapath, exist_ok=True)
     
     # Extract to a temporary folder
@@ -304,13 +286,13 @@ def leeds():
 
     # Clean Leeds patient data
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients")
-    sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients") 
-    temp_folder = os.path.join(datapath, "BEAt-DKD-WP4-Leeds", 'tmp')
+    sitedatapath = os.path.join(datapath, "Leeds", "Patients") 
+    temp_folder = os.path.join(datapath, 'tmp')
     os.makedirs(sitedatapath, exist_ok=True)
     
     # Loop over all patients
     patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
-    for pat in patients:
+    for pat in tqdm(patients, desc='Building clean database..'):
 
         # Get a standardized ID from the folder name
         pat_id = leeds_ibeat_patient_id(os.path.basename(pat))
@@ -350,13 +332,18 @@ def leeds():
             # Copy to the database using the harmonized names
             dixon = db.series(extract_to)[0]
             dixon_clean = [sitedatapath, pat_id, 'Baseline', pat_series[-1]]
-            db.copy(dixon, dixon_clean)
+            # db.copy(dixon, dixon_clean)
+            try:
+                dixon_vol = db.volume(dixon)
+            except Exception as e:
+                logging.error(f"Patient {pat_id} - {pat_series[-1]}: {e}")
+            else:
+                db.write_volume(dixon_vol, dixon_clean, ref=dixon)
 
             # Clean up tmp folder
             shutil.rmtree(temp_folder)
 
-    # Build mosaic to check fat-water swap
-    leeds_check_fatwater_swap()
+    
 
 
 
@@ -364,12 +351,13 @@ def bari():
 
     # Define input and output folders
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
-    sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
-    temp_folder = os.path.join(sitedatapath, 'tmp')
+    sitedatapath = os.path.join(datapath, "Bari", "Patients")
+    temp_folder = os.path.join(datapath, 'tmp')
+    os.makedirs(sitedatapath, exist_ok=True)
 
     # Loop over all patients
     patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
-    for pat in patients:
+    for pat in tqdm(patients, desc='Building clean database'):
 
         # Get a standardized ID from the folder name
         pat_id = bari_ibeat_patient_id(os.path.basename(pat))
@@ -410,7 +398,6 @@ def bari():
                 logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
                 shutil.rmtree(temp_folder)
                 continue
-
             flatten_folder(extract_to)
 
             # Get the harmonized series name 
@@ -445,8 +432,20 @@ def bari():
                     f"Only one echo time found. Excluded from database.")
                 shutil.rmtree(temp_folder)
                 continue               
-            db.copy(dixon_split[TE[0]], out_phase_clean)
-            db.copy(dixon_split[TE[1]], in_phase_clean)
+
+            # Use read/write volume rather than copy to ensure proper slice order.
+            # db.copy(dixon_split[TE[0]], out_phase_clean)
+            # db.copy(dixon_split[TE[1]], in_phase_clean)
+            try:
+                out_phase_vol = db.volume(dixon_split[TE[0]])
+                in_phase_vol = db.volume(dixon_split[TE[1]])
+            except Exception as e:
+                logging.error(f"Patient {pat_id} - {pat_series[-1]}: {e}")
+            else:
+                db.write_volume(out_phase_vol, out_phase_clean, ref=dixon_split[TE[0]])
+                db.write_volume(in_phase_vol, in_phase_clean, ref=dixon_split[TE[1]])
+
+            # Cleanup
             shutil.rmtree(temp_folder)
 
             # # Predict fat and water
@@ -474,18 +473,108 @@ def bari():
 
 
 
+def sheffield():
 
+    # Clean Leeds patient data
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Sheffield")
+    sitedatapath = os.path.join(datapath, "Sheffield", "Patients") 
+    temp_folder = os.path.join(datapath, 'tmp')
+    os.makedirs(sitedatapath, exist_ok=True)
+
+    # Loop over all patients
+    patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
+    for patient in tqdm(patients, desc='Building clean database'):
+
+        # Get a standardized ID from the folder name
+        pat_id = sheffield_ibeat_patient_id(os.path.basename(patient))
+
+        # If the dataset already exists, continue to the next
+        # This needs to check sequences not patients
+        subdirs = [d for d in os.listdir(sitedatapath)
+        if os.path.isdir(os.path.join(sitedatapath, d))]
+        if f'patient_{pat_id}' in subdirs:
+            continue
+
+        # Get the experiment directory
+        experiment = [f for f in os.listdir(patient) if os.path.isdir(os.path.join(patient, f))][0]
+        experiment_path = os.path.join(patient, experiment)
+
+        # Find all zip series in the experiment and sort by series number
+        all_zip_series = [f for f in os.listdir(experiment_path) if os.path.isfile(os.path.join(experiment_path, f))]
+        all_zip_series = sorted(all_zip_series, key=lambda x: int(x[7:-4]))
+
+        # Note:
+        # In Sheffield XNAT the Dixon series are not saved in the proper order, which looks messy in the database.
+        # So all series for a single patient are extracted first, then they are saved to the 
+        # database in the proper order.
+
+        # Extract all series of the patient
+        pat_series = []
+        tmp_series_folder = {} # keep a list of folders for each series
+        os.makedirs(temp_folder, exist_ok=True)
+        for zip_series in all_zip_series:
+
+            # Get the name of the zip file without extension.
+            zip_name = zip_series[:-4]
+
+            # Extract to a temporary folder and flatten it
+            try:
+                extract_to = os.path.join(temp_folder, zip_name)
+                with zipfile.ZipFile(os.path.join(experiment_path, zip_series), 'r') as zip_ref:
+                    zip_ref.extractall(extract_to)
+            except Exception as e:
+                logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
+                continue
+            flatten_folder(extract_to)
+
+            # Add new series to the list 
+            try:
+                sheffield_add_series_desc(extract_to, pat_series)
+            except Exception as e:
+                logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
+                continue
+
+            # Save in dictionary
+            tmp_series_folder[pat_series[-1]] = extract_to
+
+
+        # Write the series to the database in the proper order
+        for series in ['Dixon', 'Dixon_post_contrast']:
+            for counter in [1,2,3]: # never more than 3 repetitions
+                for image_type in ['out_phase', 'in_phase', 'fat', 'water']:
+                    series_desc = f'{series}_{counter}_{image_type}'
+                    if series_desc in tmp_series_folder:
+                        extract_to = tmp_series_folder[series_desc]
+                        # Copy to the database using the harmonized names
+                        dixon = db.series(extract_to)[0]
+                        dixon_clean = [sitedatapath, pat_id, 'Baseline', series_desc]
+                        
+                        # Use read/write volume rather than copy as a check on 
+                        # data integrity and to ensure proper slice order.
+                        # db.copy(dixon, dixon_clean)
+                        try:
+                            dixon_vol = db.volume(dixon)
+                        except Exception as e:
+                            logging.error(f"Patient {pat_id} - {series_desc}: {e}")
+                        else:
+                            db.write_volume(dixon_vol, dixon_clean, ref=dixon)
+                        
+
+        # Clean up tmp folder
+        shutil.rmtree(temp_folder)
 
 
 def all():
     leeds()
     bari()
+    sheffield()
 
 
 if __name__=='__main__':
-
-    leeds()
+    
+    # leeds()
     bari()
+    sheffield()
     
     
 

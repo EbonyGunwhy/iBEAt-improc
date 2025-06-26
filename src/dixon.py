@@ -8,9 +8,12 @@ import dixon_4_display
 
 if __name__=='__main__':
 
-    dixon_1_download.all()
-    dixon_2_data.all()
-    dixon_3_segment.all()
-    dixon_4_display.all()
+    dixon_1_download.sheffield_patients()
+    dixon_2_data.sheffield()
+
+    # dixon_1_download.all()
+    # dixon_2_data.all()
+    # dixon_3_segment.all()
+    # dixon_4_display.all()
     # dixon_5_edit.all()
     # dixon_6_measure.all()
