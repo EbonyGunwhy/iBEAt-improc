@@ -10,8 +10,8 @@ from utils import plot
 
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-maskpath = os.path.join(os.getcwd(), 'build', 'dixon_3_segment')
-displaypath = os.path.join(os.getcwd(), 'build', 'dixon_4_display')
+maskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_1_segment')
+displaypath = os.path.join(os.getcwd(), 'build', 'kidneyvol_2_display')
 os.makedirs(displaypath, exist_ok=True)
 
 # Set up logging

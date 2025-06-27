@@ -27,8 +27,6 @@ logging.basicConfig(
 
 
 
-
-
 def site_fatwater_swap(sitedatapath, file):
 
     # Skip if the site has no data yet.
@@ -100,6 +98,14 @@ def site_fatwater_swap(sitedatapath, file):
 
 
 
+def fatwater_swap():
+    for site in ['Leeds', 'Sheffield', 'Bari']:
+        sitedatapath = os.path.join(datapath, site, "Patients") 
+        sitepngpath = os.path.join(data_qc_path, f'{site}_fat_water_swap.png')
+        site_fatwater_swap(sitedatapath, sitepngpath)
+
+
+
 def fatwater_swap_record_template():
     """
     Template json file for manual recording of fat water swaps.
@@ -110,6 +116,12 @@ def fatwater_swap_record_template():
     The completed record should 
     be preserved in the data folder to be used in analyses.
     """
+
+    csv_file = os.path.join(data_qc_path, 'fat_water_swap_record.csv')
+
+    # If the file already exists, don't run it again
+    if os.path.exists(csv_file):
+        return
 
     swap_record = [
         ['Site', 'Patient', 'Study', 'Series', 'Swapped']
@@ -126,18 +138,47 @@ def fatwater_swap_record_template():
                     swap_record.append(row)
 
     # Write to CSV file
-    csv_file = os.path.join(data_qc_path, 'fat_water_swap_record.csv')
     with open(csv_file, 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(swap_record)
 
 
+def count_dixons():
 
-def fatwater_swap():
+    # If the file already exists, don't run it again
+    csv_file = os.path.join(data_qc_path, 'dixon_data.csv')
+    if os.path.exists(csv_file):
+        print('dixon_number_record.csv' + ' already exists. Skipping this step.')
+        return
+    
+    # Build data
+    data = [
+        ['Site', 'Patient', 'Study', 'Dixon', 'Dixon_post_contrast', 'Use']
+    ]
     for site in ['Leeds', 'Sheffield', 'Bari']:
         sitedatapath = os.path.join(datapath, site, "Patients") 
-        sitepngpath = os.path.join(data_qc_path, f'{site}_fat_water_swap.png')
-        site_fatwater_swap(sitedatapath, sitepngpath)
+        for study in tqdm(db.studies(sitedatapath), desc=f"Counting dixons for {site}"):
+            patient_id = study[1]
+            study_desc = study[2][0]
+            series = db.series(study)
+            series_desc = [s[3][0] for s in series]
+            row = [site, patient_id, study_desc, 0, 0, '']
+            for desc in ['Dixon', 'Dixon_post_contrast']:
+                cnt=0
+                while f'{desc}_{cnt+1}_out_phase' in series_desc:
+                    cnt+=1
+                if desc=='Dixon':
+                    row[3] = f'{cnt}'
+                else:
+                    row[4] = f'{cnt}'
+            # Use the last post-contrast if available, else the last precontrast.
+            row[5] = f'Dixon_post_contrast_{row[4]}' if cnt>0 else f'Dixon_{row[3]}'
+            data.append(row)
+
+    # Save as csv
+    with open(csv_file, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(data)
 
 
 def all():
@@ -145,5 +186,6 @@ def all():
 
 
 if __name__=='__main__':
-    #fatwater_swap_record_template()
-    fatwater_swap()
+    # fatwater_swap_record_template()
+    # fatwater_swap()
+    count_dixons()

@@ -39,6 +39,10 @@ BARI_UNUSABLE = [
     '1128_018',
 ]
 
+SHEFFIELD_UNUSABLE = [
+    '7128_047', # Only water image is on XNAT. Checked this with Martin.
+]
+
 
 downloadpath = os.path.join(os.getcwd(), 'build', 'dixon_1_download')
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
@@ -262,6 +266,8 @@ def swap_fat_water(record, dixon, series, image_type):
 def leeds_054():
 
     # Clean Leeds patient 054
+    # Problem: each image saved in a separate series with its own SeriesInstanceUID
+    # Solution: group images by SeriesNumber 
     pat = os.path.join(downloadpath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients", 'iBE-4128-054')
     sitedatapath = os.path.join(datapath, "Leeds", "Patients") 
     os.makedirs(sitedatapath, exist_ok=True)
@@ -269,30 +275,41 @@ def leeds_054():
     with tempfile.TemporaryDirectory() as temp_folder:
     
         # Extract to a temporary folder
-        os.makedirs(temp_folder, exist_ok=True)
+        temp_database_1 = os.path.join(temp_folder, 'data_1')
+        os.makedirs(temp_database_1, exist_ok=True)
         for zip_series in os.scandir(pat):
             with zipfile.ZipFile(zip_series.path, 'r') as zip_ref:
-                zip_ref.extractall(temp_folder)
-        flatten_folder(temp_folder)
+                zip_ref.extractall(temp_database_1)
+        flatten_folder(temp_database_1)
 
         dixon = {
-            4: 'Dixon_out_phase',
-            5: 'Dixon_in_phase',
-            6: 'Dixon_fat',
-            7: 'Dixon_water',
-            41: 'Dixon_post_contrast_out_phase',
-            42: 'Dixon_post_contrast_in_phase',
-            43: 'Dixon_post_contrast_fat',
-            44: 'Dixon_post_contrast_water',
+            4: 'Dixon_1_out_phase',
+            5: 'Dixon_1_in_phase',
+            6: 'Dixon_1_fat',
+            7: 'Dixon_1_water',
+            41: 'Dixon_post_contrast_1_out_phase',
+            42: 'Dixon_post_contrast_1_in_phase',
+            43: 'Dixon_post_contrast_1_fat',
+            44: 'Dixon_post_contrast_1_water',
         }
         
-        # Group the series
-        for s in db.series(temp_folder):
+        # Group into series by series number in a temporary database 2
+        temp_database_2 = os.path.join(temp_folder, 'data_2')
+        for s in db.series(temp_database_1):
             v = db.unique('SeriesNumber', s)[0]
-            new_series = [sitedatapath, '4128_054', 'Baseline', dixon[v]]
-            db.move(s, new_series)
+            new_series = [temp_database_2, '4128_054', 'Baseline', dixon[v]]
+            db.move(s, new_series)    
 
-        
+        # Read as volume to ensure proper slice orders and write to final database.
+        for s in db.series(temp_database_2): 
+            try:
+                dixon_vol = db.volume(s)
+            except Exception as e:
+                logging.error(f"Patient 4128_054 - {s[-1][0]}: {e}")
+            else:
+                new_series = [sitedatapath] + s[1:]
+                db.write_volume(dixon_vol, new_series, ref=s)
+
 
 
 def leeds():
@@ -548,6 +565,10 @@ def sheffield():
         # Get a standardized ID from the folder name
         pat_id = sheffield_ibeat_patient_id(os.path.basename(patient))
 
+        # Corrupted data
+        if pat_id in SHEFFIELD_UNUSABLE:
+            continue
+
         # If the dataset already exists, continue to the next
         # This needs to check sequences not patients
         subdirs = [d for d in os.listdir(sitedatapath)
@@ -632,9 +653,10 @@ def all():
 
 if __name__=='__main__':
     
+    leeds_054()
     # leeds()
     # bari()
-    sheffield()
+    # sheffield()
     
     
 

@@ -8,7 +8,7 @@ import torch
 
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data') 
-maskpath = os.path.join(os.getcwd(), 'build', 'dixon_3_segment') 
+maskpath = os.path.join(os.getcwd(), 'build', 'totseg_1_segment') 
 os.makedirs(maskpath, exist_ok=True)
 
 
