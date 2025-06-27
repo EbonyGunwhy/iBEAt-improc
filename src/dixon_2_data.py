@@ -22,16 +22,21 @@ import os
 import zipfile
 import shutil
 import logging
+import tempfile
+import csv
 
 from tqdm import tqdm
+import numpy as np
 import pydicom
 import dbdicom as db
+import vreg
 
 
 # These datasets are unusable and not included in the database.
 
 BARI_UNUSABLE = [
     '1128_013', # Only one single image in DIXON series on XNAT. Other scans also incomplete - check with Bari.
+    '1128_018',
 ]
 
 
@@ -242,6 +247,16 @@ def bari_split_series(folder):
 
 
 
+def swap_fat_water(record, dixon, series, image_type):
+    for row in record:
+        if row[1:4] == [dixon[1], dixon[2], series]:
+            if row[4]=='1':
+                # Swap fat and water
+                if image_type=='fat':
+                    return dixon[:3] + [f'{series}_water']
+                if image_type=='water':
+                    return dixon[:3] + [f'{series}_fat']
+    return dixon
 
 
 def leeds_054():
@@ -249,35 +264,33 @@ def leeds_054():
     # Clean Leeds patient 054
     pat = os.path.join(downloadpath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients", 'iBE-4128-054')
     sitedatapath = os.path.join(datapath, "Leeds", "Patients") 
-    temp_folder = os.path.join(datapath, 'tmp')
     os.makedirs(sitedatapath, exist_ok=True)
-    
-    # Extract to a temporary folder
-    os.makedirs(temp_folder, exist_ok=True)
-    for zip_series in os.scandir(pat):
-        with zipfile.ZipFile(zip_series.path, 'r') as zip_ref:
-            zip_ref.extractall(temp_folder)
-    flatten_folder(temp_folder)
 
-    dixon = {
-        4: 'Dixon_out_phase',
-        5: 'Dixon_in_phase',
-        6: 'Dixon_fat',
-        7: 'Dixon_water',
-        41: 'Dixon_post_contrast_out_phase',
-        42: 'Dixon_post_contrast_in_phase',
-        43: 'Dixon_post_contrast_fat',
-        44: 'Dixon_post_contrast_water',
-    }
+    with tempfile.TemporaryDirectory() as temp_folder:
     
-    # Group the series
-    for s in db.series(temp_folder):
-        v = db.unique('SeriesNumber', s)[0]
-        new_series = [sitedatapath, '4128_054', 'Baseline', dixon[v]]
-        db.move(s, new_series)
+        # Extract to a temporary folder
+        os.makedirs(temp_folder, exist_ok=True)
+        for zip_series in os.scandir(pat):
+            with zipfile.ZipFile(zip_series.path, 'r') as zip_ref:
+                zip_ref.extractall(temp_folder)
+        flatten_folder(temp_folder)
 
-    # delete tmp folder
-    shutil.rmtree(temp_folder)
+        dixon = {
+            4: 'Dixon_out_phase',
+            5: 'Dixon_in_phase',
+            6: 'Dixon_fat',
+            7: 'Dixon_water',
+            41: 'Dixon_post_contrast_out_phase',
+            42: 'Dixon_post_contrast_in_phase',
+            43: 'Dixon_post_contrast_fat',
+            44: 'Dixon_post_contrast_water',
+        }
+        
+        # Group the series
+        for s in db.series(temp_folder):
+            v = db.unique('SeriesNumber', s)[0]
+            new_series = [sitedatapath, '4128_054', 'Baseline', dixon[v]]
+            db.move(s, new_series)
 
         
 
@@ -287,7 +300,6 @@ def leeds():
     # Clean Leeds patient data
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients")
     sitedatapath = os.path.join(datapath, "Leeds", "Patients") 
-    temp_folder = os.path.join(datapath, 'tmp')
     os.makedirs(sitedatapath, exist_ok=True)
     
     # Loop over all patients
@@ -308,42 +320,91 @@ def leeds():
             leeds_054()
             continue
 
-        pat_series = []
-        for zip_series in os.scandir(pat):
+        with tempfile.TemporaryDirectory() as temp_folder:
 
-            # Get the name of the zip file without extension
-            zip_name = os.path.splitext(os.path.basename(zip_series.path))[0]
+            pat_series = []
+            for zip_series in os.scandir(pat):
 
-            # Extract to a temporary folder and flatten
-            os.makedirs(temp_folder, exist_ok=True)
-            extract_to = os.path.join(temp_folder, zip_name)
-            with zipfile.ZipFile(zip_series.path, 'r') as zip_ref:
-                zip_ref.extractall(extract_to)
-            flatten_folder(extract_to)
+                # Get the name of the zip file without extension
+                zip_name = os.path.splitext(os.path.basename(zip_series.path))[0]
 
-            # Add new series name to the list
-            try:
-                leeds_add_series_name(extract_to, pat_series)
-            except Exception as e:
-                logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
-                shutil.rmtree(extract_to)
-                continue
+                # Extract to a temporary folder and flatten
+                extract_to = os.path.join(temp_folder, zip_name)
+                with zipfile.ZipFile(zip_series.path, 'r') as zip_ref:
+                    zip_ref.extractall(extract_to)
+                flatten_folder(extract_to)
 
-            # Copy to the database using the harmonized names
-            dixon = db.series(extract_to)[0]
-            dixon_clean = [sitedatapath, pat_id, 'Baseline', pat_series[-1]]
-            # db.copy(dixon, dixon_clean)
-            try:
-                dixon_vol = db.volume(dixon)
-            except Exception as e:
-                logging.error(f"Patient {pat_id} - {pat_series[-1]}: {e}")
-            else:
-                db.write_volume(dixon_vol, dixon_clean, ref=dixon)
+                # Add new series name to the list
+                try:
+                    leeds_add_series_name(extract_to, pat_series)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
+                    continue
 
-            # Clean up tmp folder
-            shutil.rmtree(temp_folder)
+                # Copy to the database using the harmonized names
+                dixon = db.series(extract_to)[0]
+                dixon_clean = [sitedatapath, pat_id, 'Baseline', pat_series[-1]]
+                # db.copy(dixon, dixon_clean)
+                try:
+                    dixon_vol = db.volume(dixon)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - {pat_series[-1]}: {e}")
+                else:
+                    db.write_volume(dixon_vol, dixon_clean, ref=dixon)
 
-    
+
+
+def bari_030(dixon_split):
+
+    # The precontrast dixon of this subject has missing slices in the 
+    # middle. In out-phase is missing 2 consecutive slices at slice 
+    # locations 13 and 14, and the in-phase is missing 1 slice at 
+    # slice location 13. Solved by interpolating to recover the missing 
+    # slices.
+
+    sitedatapath = os.path.join(datapath, "Bari", "Patients")
+    pat_id = '1128_030'
+    series_desc = 'Dixon_1'
+
+    # Need these values to build the affine
+    aff = ['ImageOrientationPatient', 'ImagePositionPatient', 'PixelSpacing', 'SpacingBetweenSlices']
+
+    # Interpolate missing slices - out-phase
+    loc0 = 11.6357442880728 # last slice before the gap
+    series = dixon_split[1.274]
+    arr, crd, val = db.pixel_data(series, dims='SliceLocation', coords=True, attr=aff)
+    i0 = np.where(crd[0,:] == loc0)[0][0]
+    # Interpolate missing slices
+    pixel_data = np.zeros(arr.shape[:2] + (arr.shape[2]+2, ))
+    pixel_data[:,:,:i0+1] = arr[:,:,:i0+1]
+    pixel_data[:,:,i0+1] = (1/3) * arr[:,:,i0] + (2/3) * arr[:,:,i0+1]
+    pixel_data[:,:,i0+2] = (2/3) * arr[:,:,i0] + (1/3) * arr[:,:,i0+1]
+    pixel_data[:,:,i0+3:] = arr[:,:,i0+1:]
+    # Create volume and save
+    affine = db.affine_matrix(
+        val['ImageOrientationPatient'][0], 
+        val['ImagePositionPatient'][0], 
+        val['PixelSpacing'][0], 
+        val['SpacingBetweenSlices'][0])
+    in_phase_vol = vreg.volume(pixel_data, affine)
+    in_phase_clean = [sitedatapath, pat_id, 'Baseline', series_desc + '_out_phase']
+    db.write_volume(in_phase_vol, in_phase_clean, ref=series)
+
+    # Interpolate missing slices - in_phase
+    loc0 = 13.1357467355428 # last slice before the gap
+    series = dixon_split[2.444]
+    arr, crd = db.pixel_data(series, dims='SliceLocation', coords=True)
+    i0 = np.where(crd[0,:] == loc0)[0][0]
+    # Interpolate missing slices
+    pixel_data = np.zeros(arr.shape[:2] + (arr.shape[2]+1, ))
+    pixel_data[:,:,:i0+1] = arr[:,:,:i0+1]
+    pixel_data[:,:,i0+1] = (1/2) * arr[:,:,i0] + (1/2) * arr[:,:,i0+1]
+    pixel_data[:,:,i0+2:] = arr[:,:,i0+1:]
+    # Create volume and save
+    out_phase_vol = vreg.volume(pixel_data, affine)
+    out_phase_clean = [sitedatapath, pat_id, 'Baseline', series_desc + '_in_phase']
+    db.write_volume(out_phase_vol, out_phase_clean, ref=series)
+
 
 
 
@@ -352,7 +413,6 @@ def bari():
     # Define input and output folders
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
     sitedatapath = os.path.join(datapath, "Bari", "Patients")
-    temp_folder = os.path.join(datapath, 'tmp')
     os.makedirs(sitedatapath, exist_ok=True)
 
     # Loop over all patients
@@ -364,12 +424,6 @@ def bari():
 
         # Corrupted data
         if pat_id in BARI_UNUSABLE:
-            continue
-
-        # If the dataset already exists, continue to the next
-        subdirs = [d for d in os.listdir(sitedatapath)
-           if os.path.isdir(os.path.join(sitedatapath, d))]
-        if f'patient_{pat_id}' in subdirs:
             continue
 
         # Find all zip series, remove those with 'OT' in the name and sort by series number
@@ -384,92 +438,93 @@ def bari():
             # Get the name of the zip file without extension
             zip_name = zip_series[:-4]
 
-            # # Series with 'OT' in name are not images
-            # if 'OT' in zip_name:
-            #     continue
-
-            # Extract to a temporary folder and flatten it
-            os.makedirs(temp_folder, exist_ok=True)
-            try:
-                extract_to = os.path.join(temp_folder, zip_name)
-                with zipfile.ZipFile(os.path.join(pat, zip_series), 'r') as zip_ref:
-                    zip_ref.extractall(extract_to)
-            except Exception as e:
-                logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
-                shutil.rmtree(temp_folder)
-                continue
-            flatten_folder(extract_to)
-
             # Get the harmonized series name 
             try:
                 bari_add_series_name(zip_name, pat_series)
             except Exception as e:
                 logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
-                shutil.rmtree(temp_folder)
                 continue
 
-            # Split series into in- and opposed phase
-            dixon = db.series(extract_to)[0]
-            try:
-                dixon_split = db.split_series(dixon, 'EchoTime')
-            except Exception as e:
-                logging.error(
-                    f"Error splitting Bari series {pat_id} "
-                    f"{os.path.basename(extract_to)}."
-                    f"The series is not included in the database.\n"
-                    f"--> Details of the error: {e}")
-                shutil.rmtree(temp_folder)
+            # Construct output series
+            study = [sitedatapath, pat_id, ('Baseline', 0)]
+            out_phase_clean = study + [(pat_series[-1] + 'out_phase', 0)]
+            in_phase_clean = study + [(pat_series[-1] + 'in_phase', 0)]
+
+            # If the series already exists, continue to the next
+            if out_phase_clean in db.series(study):
                 continue
-            
-            # Copy split series to the database using the harmonized names
-            out_phase_clean = [sitedatapath, pat_id, 'Baseline', pat_series[-1] + 'out_phase']
-            in_phase_clean = [sitedatapath, pat_id, 'Baseline', pat_series[-1] + 'in_phase']
-            TE = list(dixon_split.keys())
-            if len(TE) == 1:
-                logging.error(
-                    f"Bari patient {pat_id}, series "
-                    f"{os.path.basename(extract_to)}: "
-                    f"Only one echo time found. Excluded from database.")
-                shutil.rmtree(temp_folder)
-                continue               
 
-            # Use read/write volume rather than copy to ensure proper slice order.
-            # db.copy(dixon_split[TE[0]], out_phase_clean)
-            # db.copy(dixon_split[TE[1]], in_phase_clean)
-            try:
-                out_phase_vol = db.volume(dixon_split[TE[0]])
-                in_phase_vol = db.volume(dixon_split[TE[1]])
-            except Exception as e:
-                logging.error(f"Patient {pat_id} - {pat_series[-1]}: {e}")
-            else:
-                db.write_volume(out_phase_vol, out_phase_clean, ref=dixon_split[TE[0]])
-                db.write_volume(in_phase_vol, in_phase_clean, ref=dixon_split[TE[1]])
+            with tempfile.TemporaryDirectory() as temp_folder:
 
-            # Cleanup
-            shutil.rmtree(temp_folder)
+                # Extract to a temporary folder and flatten it
+                os.makedirs(temp_folder, exist_ok=True)
+                try:
+                    extract_to = os.path.join(temp_folder, zip_name)
+                    with zipfile.ZipFile(os.path.join(pat, zip_series), 'r') as zip_ref:
+                        zip_ref.extractall(extract_to)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
+                    continue
+                flatten_folder(extract_to)
 
-            # # Predict fat and water
-            # # ---------------------
-            # This works but the results are poor
-            # Uncomment when the method has been improved
+                # Split series into in- and opposed phase
+                dixon = db.series(extract_to)[0]
+                try:
+                    dixon_split = db.split_series(dixon, 'EchoTime')
+                except Exception as e:
+                    logging.error(
+                        f"Error splitting Bari series {pat_id} "
+                        f"{os.path.basename(extract_to)}."
+                        f"The series is not included in the database.\n"
+                        f"--> Details of the error: {e}")
+                    continue
+                
+                # Check the echo times
+                TE = list(dixon_split.keys())
+                if len(TE) == 1:
+                    logging.error(
+                        f"Bari patient {pat_id}, series "
+                        f"{os.path.basename(extract_to)}: "
+                        f"Only one echo time found. Excluded from database.")
+                    continue    
 
-            # try:
-            #     out_phase = db.volume(out_phase_clean)
-            #     in_phase = db.volume(in_phase_clean)
-            # except Exception as e:
-            #     logging.error(
-            #         f"Patient {pat_id}: error predicting fat-water separation. "
-            #         f"Cannot read out-phase or in-phase volumes: {e}")
-            #     continue
-            # array = np.stack((out_phase.values, in_phase.values), axis=-1)
-            # fw = miblab.kidney_dixon_fat_water(array)
+                # Special case
+                if (pat_id == '1128_030') and (pat_series[-1] == 'Dixon_1_'):
+                    bari_030(dixon_split)
+                    continue
 
-            # # Save fat and water
-            # fat = [sitedatapath, pat_id, 'Baseline', pat_series[-1] + 'fat']
-            # water = [sitedatapath, pat_id, 'Baseline', pat_series[-1] + 'water']
-            # ref = out_phase_clean
-            # db.write_volume((fw['fat'], out_phase.affine), fat, ref)
-            # db.write_volume((fw['water'], out_phase.affine), water, ref)
+                # Write to the database using read/write volume to ensure proper slice order.
+                try:
+                    out_phase_vol = db.volume(dixon_split[TE[0]])
+                    in_phase_vol = db.volume(dixon_split[TE[1]])
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - {pat_series[-1]}: {e}")
+                else:
+                    db.write_volume(out_phase_vol, out_phase_clean, ref=dixon_split[TE[0]])
+                    db.write_volume(in_phase_vol, in_phase_clean, ref=dixon_split[TE[1]])
+
+                # # Predict fat and water
+                # # ---------------------
+                # This works but the results are poor
+                # Uncomment when the method has been improved
+
+                # try:
+                #     out_phase = db.volume(out_phase_clean)
+                #     in_phase = db.volume(in_phase_clean)
+                # except Exception as e:
+                #     logging.error(
+                #         f"Patient {pat_id}: error predicting fat-water separation. "
+                #         f"Cannot read out-phase or in-phase volumes: {e}")
+                #     continue
+                # array = np.stack((out_phase.values, in_phase.values), axis=-1)
+                # fw = miblab.kidney_dixon_fat_water(array)
+
+                # # Save fat and water
+                # fat = [sitedatapath, pat_id, 'Baseline', pat_series[-1] + 'fat']
+                # water = [sitedatapath, pat_id, 'Baseline', pat_series[-1] + 'water']
+                # ref = out_phase_clean
+                # db.write_volume((fw['fat'], out_phase.affine), fat, ref)
+                # db.write_volume((fw['water'], out_phase.affine), water, ref)
 
 
 
@@ -478,8 +533,13 @@ def sheffield():
     # Clean Leeds patient data
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Sheffield")
     sitedatapath = os.path.join(datapath, "Sheffield", "Patients") 
-    temp_folder = os.path.join(datapath, 'tmp')
     os.makedirs(sitedatapath, exist_ok=True)
+
+    # Read fat-water swap record to avoid repeated reading at the end
+    record = os.path.join(os.getcwd(), 'src', 'data', 'fat_water_swap_record.csv')
+    with open(record, 'r') as file:
+        reader = csv.reader(file)
+        record = [row for row in reader]
 
     # Loop over all patients
     patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
@@ -509,59 +569,59 @@ def sheffield():
         # database in the proper order.
 
         # Extract all series of the patient
-        pat_series = []
-        tmp_series_folder = {} # keep a list of folders for each series
-        os.makedirs(temp_folder, exist_ok=True)
-        for zip_series in all_zip_series:
+        with tempfile.TemporaryDirectory() as temp_folder:
 
-            # Get the name of the zip file without extension.
-            zip_name = zip_series[:-4]
+            pat_series = []
+            tmp_series_folder = {} # keep a list of folders for each series
+    
+            for zip_series in all_zip_series:
 
-            # Extract to a temporary folder and flatten it
-            try:
-                extract_to = os.path.join(temp_folder, zip_name)
-                with zipfile.ZipFile(os.path.join(experiment_path, zip_series), 'r') as zip_ref:
-                    zip_ref.extractall(extract_to)
-            except Exception as e:
-                logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
-                continue
-            flatten_folder(extract_to)
+                # Get the name of the zip file without extension.
+                zip_name = zip_series[:-4]
 
-            # Add new series to the list 
-            try:
-                sheffield_add_series_desc(extract_to, pat_series)
-            except Exception as e:
-                logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
-                continue
+                # Extract to a temporary folder and flatten it
+                try:
+                    extract_to = os.path.join(temp_folder, zip_name)
+                    with zipfile.ZipFile(os.path.join(experiment_path, zip_series), 'r') as zip_ref:
+                        zip_ref.extractall(extract_to)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
+                    continue
+                flatten_folder(extract_to)
 
-            # Save in dictionary
-            tmp_series_folder[pat_series[-1]] = extract_to
+                # Add new series to the list 
+                try:
+                    sheffield_add_series_desc(extract_to, pat_series)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
+                    continue
+
+                # Save in dictionary
+                tmp_series_folder[pat_series[-1]] = extract_to
 
 
-        # Write the series to the database in the proper order
-        for series in ['Dixon', 'Dixon_post_contrast']:
-            for counter in [1,2,3]: # never more than 3 repetitions
-                for image_type in ['out_phase', 'in_phase', 'fat', 'water']:
-                    series_desc = f'{series}_{counter}_{image_type}'
-                    if series_desc in tmp_series_folder:
-                        extract_to = tmp_series_folder[series_desc]
-                        # Copy to the database using the harmonized names
-                        dixon = db.series(extract_to)[0]
-                        dixon_clean = [sitedatapath, pat_id, 'Baseline', series_desc]
-                        
-                        # Use read/write volume rather than copy as a check on 
-                        # data integrity and to ensure proper slice order.
-                        # db.copy(dixon, dixon_clean)
-                        try:
-                            dixon_vol = db.volume(dixon)
-                        except Exception as e:
-                            logging.error(f"Patient {pat_id} - {series_desc}: {e}")
-                        else:
-                            db.write_volume(dixon_vol, dixon_clean, ref=dixon)
-                        
+            # Write the series to the database in the proper order
+            for series in ['Dixon', 'Dixon_post_contrast']:
+                for counter in [1,2,3]: # never more than 3 repetitions
+                    for image_type in ['out_phase', 'in_phase', 'fat', 'water']:
+                        series_desc = f'{series}_{counter}_{image_type}'
+                        if series_desc in tmp_series_folder:
+                            extract_to = tmp_series_folder[series_desc]
+                            # Copy to the database using the harmonized names
+                            dixon = db.series(extract_to)[0]
+                            dixon_clean = [sitedatapath, pat_id, 'Baseline', series_desc]
+                            # Perform fat-water swap if needed
+                            dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
+                            # Write to database.
+                            # db.copy(dixon, dixon_clean)
+                            try:
+                                dixon_vol = db.volume(dixon)
+                            except Exception as e:
+                                logging.error(f"Patient {pat_id} - {series_desc}: {e}")
+                            else:
+                                db.write_volume(dixon_vol, dixon_clean, ref=dixon)
 
-        # Clean up tmp folder
-        shutil.rmtree(temp_folder)
+
 
 
 def all():
@@ -573,7 +633,7 @@ def all():
 if __name__=='__main__':
     
     # leeds()
-    bari()
+    # bari()
     sheffield()
     
     

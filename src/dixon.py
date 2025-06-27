@@ -1,5 +1,6 @@
 import dixon_1_download
 import dixon_2_data
+import dixon_3_check
 import dixon_3_segment
 import dixon_4_display
 # import dixon_5_edit
@@ -8,8 +9,8 @@ import dixon_4_display
 
 if __name__=='__main__':
 
-    dixon_1_download.sheffield_patients()
     dixon_2_data.sheffield()
+    dixon_3_check.fatwater_swap()
 
     # dixon_1_download.all()
     # dixon_2_data.all()

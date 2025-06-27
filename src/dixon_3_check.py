@@ -1,5 +1,8 @@
 import os
 import logging
+import csv
+
+
 
 from tqdm import tqdm
 import matplotlib
@@ -11,7 +14,7 @@ import dbdicom as db
 
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-data_qc_path = os.path.join(os.getcwd(), 'build', 'dixon_3_data_check')
+data_qc_path = os.path.join(os.getcwd(), 'build', 'dixon_3_check')
 os.makedirs(data_qc_path, exist_ok=True)
 
 
@@ -24,17 +27,26 @@ logging.basicConfig(
 
 
 
-def site_check_fatwater_swap(sitedatapath, sitepngpath):
 
-    # If the file exists, dont build the figure
-    file = os.path.join(sitepngpath, 'fat-water swap check.png')
+
+def site_fatwater_swap(sitedatapath, file):
+
+    # Skip if the site has no data yet.
+    if not os.path.exists(sitedatapath):
+        return
+
+    # Skip if the file already exists.
     if os.path.exists(file):
         return
 
-    # Get out phase series
+    # Get out-phase series
     series = db.series(sitedatapath)
     series_desc = [s[-1][0] for s in series]
-    series_fat = [s for s in series if series_desc[-3:]=='fat']
+    series_fat = [s for i, s in enumerate(series) if series_desc[i][-3:]=='fat']
+
+    # If there are no fat images there is nothing to do
+    if series_fat == []:
+        return
 
     # Build list of center slices
     center_slices = []
@@ -67,9 +79,11 @@ def site_check_fatwater_swap(sitedatapath, sitepngpath):
                     vmax=np.mean(center_slices[i]) + 2 * np.std(center_slices[i])
                 )
                 # Add white text with black background in upper-left corner
+                patient_id = series_fat[i][1]
+                series_desc = series_fat[i][-1][0]
                 col.text(
                     0.01, 0.99,                   
-                    f'{series_fat[i][1][0]} - {series_fat[i][-1]}',   
+                    f'{patient_id}\n{series_desc}',   
                     color='white',
                     fontsize=2,
                     ha='left',
@@ -85,26 +99,51 @@ def site_check_fatwater_swap(sitedatapath, sitepngpath):
     plt.close()
 
 
-def leeds_check_fatwater_swap():
-    sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients") 
-    sitepngpath = os.path.join(data_qc_path, "BEAt-DKD-WP4-Leeds")
-    os.makedirs(sitepngpath, exist_ok=True)
-    site_check_fatwater_swap(sitedatapath, sitepngpath)
+
+def fatwater_swap_record_template():
+    """
+    Template json file for manual recording of fat water swaps.
+
+    Fat-water swaps should be manually recorded in this template by 
+    setting the default value of 0 to 1. 
+    
+    The completed record should 
+    be preserved in the data folder to be used in analyses.
+    """
+
+    swap_record = [
+        ['Site', 'Patient', 'Study', 'Series', 'Swapped']
+    ]
+    for site in ['Leeds', 'Sheffield', 'Bari']:
+        sitedatapath = os.path.join(datapath, site, "Patients") 
+        if os.path.exists(sitedatapath):
+            for series in tqdm(db.series(sitedatapath), desc=f"Building record for {site}"):
+                patient_id = series[1]
+                study_desc = series[2][0]
+                series_desc = series[3][0]
+                if series_desc[-3:]=='fat':
+                    row = [site, patient_id, study_desc, series_desc[:-4], 0]
+                    swap_record.append(row)
+
+    # Write to CSV file
+    csv_file = os.path.join(data_qc_path, 'fat_water_swap_record.csv')
+    with open(csv_file, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(swap_record)
 
 
-def sheffield_check_fatwater_swap():
-    sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Sheffield", "Sheffield_Patients") 
-    sitepngpath = os.path.join(data_qc_path, "BEAt-DKD-WP4-Sheffield")
-    os.makedirs(sitepngpath, exist_ok=True)
-    site_check_fatwater_swap(sitedatapath, sitepngpath)
 
+def fatwater_swap():
+    for site in ['Leeds', 'Sheffield', 'Bari']:
+        sitedatapath = os.path.join(datapath, site, "Patients") 
+        sitepngpath = os.path.join(data_qc_path, f'{site}_fat_water_swap.png')
+        site_fatwater_swap(sitedatapath, sitepngpath)
 
 
 def all():
-    leeds_check_fatwater_swap()
-    sheffield_check_fatwater_swap()
+    fatwater_swap()
 
 
 if __name__=='__main__':
-    leeds_check_fatwater_swap()
-    sheffield_check_fatwater_swap()
+    #fatwater_swap_record_template()
+    fatwater_swap()
