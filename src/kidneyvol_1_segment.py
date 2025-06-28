@@ -8,6 +8,8 @@ import miblab
 import torch
 import scipy.ndimage as ndi
 
+import utils.data
+
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data') 
 maskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_1_segment') 
@@ -40,24 +42,10 @@ def largest_cluster(array:np.ndarray)->np.ndarray:
     return label_img==max_label
 
 
-
-def dixon_series_desc(record, patient, study):
-    for row in record:
-        if row[1] == patient:
-            if row[2]==study:
-                return row[5]
-    raise ValueError(
-        f'Patient {patient}, study {study}: not found in src/data/dixon_data.csv'
-    )
-
-
 def segment_site(sitedatapath, sitemaskpath):
 
-    # Read fat-water swap record to avoid repeated reading at the end
-    record = os.path.join(os.getcwd(), 'src', 'data', 'dixon_data.csv')
-    with open(record, 'r') as file:
-        reader = csv.reader(file)
-        record = [row for row in reader]
+    # List of selected dixon series
+    record = utils.data.dixon_record()
 
     # Get out phase series
     series = db.series(sitedatapath)
@@ -73,7 +61,7 @@ def segment_site(sitedatapath, sitemaskpath):
         sequence = series_op_desc[:-10]
 
         # Skip if it is not the right sequence
-        selected_sequence = dixon_series_desc(record, patient, study)
+        selected_sequence = utils.data.dixon_series_desc(record, patient, study)
         if sequence != selected_sequence:
             continue
 
@@ -101,7 +89,10 @@ def segment_site(sitedatapath, sitemaskpath):
             try:
                 device = 'gpu' if torch.cuda.is_available() else 'cpu'
                 rois = miblab.totseg(op, cutoff=0.01, task='total_mr', device=device)
+                # Remove smaller disconnected clusters
                 rois = {roi:largest_cluster(vol.values) for roi, vol in rois.items() if roi in ['kidney_left', 'kidney_right']}
+                # Reverse left and right for consistency with miblab models
+                rois = {key:rois[key] for key in ['kidney_left', 'kidney_right']}
             except Exception as e:
                 logging.error(f"Error processing {patient} {sequence} with total segmentator: {e}")
                 continue

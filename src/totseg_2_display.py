@@ -9,6 +9,8 @@ import dbdicom as db
 from utils import plot
 
 
+
+
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
 maskpath = os.path.join(os.getcwd(), 'build', 'totseg_1_segment')
 displaypath = os.path.join(os.getcwd(), 'build', 'totseg_2_display')
