@@ -9,6 +9,7 @@ pydmr==0.0.4
 pyradiomics==3.0.1
 moviepy==2.2.1
 scipy==1.15.3
+napari[all]==0.6.1
 
 # torch with CUDA support
 # torch==2.5.1 installs CPU-only version

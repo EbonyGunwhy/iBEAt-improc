@@ -1,13 +1,5 @@
 """
-Automatic download of DIXON data. 
-
-Notes
------
-
-The following data are incomplete - approached the site for a new upload.
-
-Bari 1128_013: unusable DIXON (1 slice) and incomplete other data
-Bari 1128_018: no DIXON and incomplete other data. 
+Automatic download of DIXON data from XNAT.
 
 """
 
@@ -17,7 +9,6 @@ from utils import xnat
 
 path = os.path.join(os.getcwd(), 'build', 'dixon_1_download')  
 os.makedirs(path, exist_ok=True)
-
 
 
 def leeds_patients():

@@ -189,3 +189,5 @@ if __name__=='__main__':
     # fatwater_swap_record_template()
     # fatwater_swap()
     count_dixons()
+
+    # TODO export more detailed report of dixon data before running the segmentation

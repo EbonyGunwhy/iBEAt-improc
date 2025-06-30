@@ -22,6 +22,6 @@ import dixon_3_check
 
 if __name__=='__main__':
 
-    dixon_1_download.all()
-    dixon_2_data.all()
-    dixon_3_check.all()
+    # dixon_1_download.all()
+    # dixon_2_data.all()
+    # dixon_3_check.all()

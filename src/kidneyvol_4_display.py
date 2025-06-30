@@ -9,8 +9,8 @@ from utils import plot, data
 
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-maskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_1_segment')
-displaypath = os.path.join(os.getcwd(), 'build', 'kidneyvol_2_display')
+maskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_3_edit')
+displaypath = os.path.join(os.getcwd(), 'build', 'kidneyvol_4_display')
 os.makedirs(displaypath, exist_ok=True)
 
 # Set up logging
@@ -20,47 +20,11 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-def movie(sitedatapath, sitemaskpath, sitedisplaypath):
-
-    # Build output folders
-    movies_kidneys = os.path.join(displaypath, sitedisplaypath, 'Movies')
-    os.makedirs(movies_kidneys, exist_ok=True)
-
-    record = data.dixon_record()
-    class_map = {1: "kidney_left", 2: "kidney_right"}
-
-    # Loop over the masks
-    for mask in tqdm(db.series(sitemaskpath), 'Displaying masks..'):
-
-        # Get the corresponding outphase series
-        patient_id = mask[1]
-        study = mask[2][0]
-        sequence = data.dixon_series_desc(record, patient_id, study)
-        series_op = [sitedatapath, patient_id, study, f'{sequence}_out_phase']
-
-        # Skip if file exists
-        file = os.path.join(movies_kidneys, f'{patient_id}_{sequence}_kidneys.mp4')
-        if not os.path.exists(file):
-            continue
-
-        # Get arrays
-        op_arr = db.volume(series_op).values
-        mask_arr = db.volume(mask).values
-        rois = {}
-        for idx, roi in class_map.items():
-            rois[roi] = (mask_arr==idx).astype(np.int16)
-
-        # Build movie (kidneys only)
-        try:
-            plot.movie_overlay(op_arr, rois, file)
-        except Exception as e:
-            logging.error(f"{patient_id} {sequence} error building movie: {e}")
-        
 
 def mosaic(sitedatapath, sitemaskpath, sitedisplaypath):
 
     # Build output folders
-    display_kidneys = os.path.join(displaypath, sitedisplaypath, 'Mosaics')
+    display_kidneys = os.path.join(displaypath, sitedisplaypath)
     os.makedirs(display_kidneys, exist_ok=True)
 
     record = data.dixon_record()
@@ -125,5 +89,5 @@ def all():
 
 if __name__=='__main__':
     bari()
-    leeds()
-    sheffield()
+    # leeds()
+    # sheffield()

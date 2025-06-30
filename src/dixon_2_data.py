@@ -1,21 +1,5 @@
 """
 Create clean database
----------------------
-
-Leeds
------
-
-62 cases in database & on XNAT.
-
-Bari
-----
-
-72 cases in database, 74 on XNAT.
-
-Not included in database:
-
-Bari 1128_013: data on XNAT unusable/incomplete - check google drive, then with Bari if data are correct in archive.
-Bari 1128_018: data on XNAT unusable/incomplete - check google drive, then with Bari if data are correct in archive.
 """
 
 import os
@@ -32,17 +16,13 @@ import dbdicom as db
 import vreg
 
 
-# These datasets are unusable and not included in the database.
-
-BARI_UNUSABLE = [
-    '1128_013', # Only one single image in DIXON series on XNAT. Other scans also incomplete - check with Bari.
-    '1128_018',
+EXCLUDE = [
+    '1128_018', # Martin has sent the new ones through - should appear on XNAT (not happened, checked with Kevin)
+    '7128_054', # TODO: (Passed on to Kevin). Post contrast outphase not complete (233/248 slices), water map missing. Looks like incomplete data transfer. 
+    '7128_065', # TODO: (Passed on to Kevin). Missing post-contrast In-phase and Out-phase (fat and water are there) and precontrast Water (the others are there)
+    '7128_148', # TODO: (Passed on to Kevin). Missing post-contrast out_phase (fat, in-phase and water are there). Missing precontrast water (fat, inphase, outphase are there)
+    '7128_155', # TODO: (Passed on to Kevin). Precontrast missing in-phase. Post-contrast mssing in-phase, out-phase (fat/water are there)
 ]
-
-SHEFFIELD_UNUSABLE = [
-    '7128_047', # Only water image is on XNAT. Checked this with Martin.
-]
-
 
 downloadpath = os.path.join(os.getcwd(), 'build', 'dixon_1_download')
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
@@ -440,7 +420,7 @@ def bari():
         pat_id = bari_ibeat_patient_id(os.path.basename(pat))
 
         # Corrupted data
-        if pat_id in BARI_UNUSABLE:
+        if pat_id in EXCLUDE:
             continue
 
         # Find all zip series, remove those with 'OT' in the name and sort by series number
@@ -566,13 +546,14 @@ def sheffield():
         pat_id = sheffield_ibeat_patient_id(os.path.basename(patient))
 
         # Corrupted data
-        if pat_id in SHEFFIELD_UNUSABLE:
+        if pat_id in EXCLUDE:
             continue
 
         # If the dataset already exists, continue to the next
         # This needs to check sequences not patients
-        subdirs = [d for d in os.listdir(sitedatapath)
-        if os.path.isdir(os.path.join(sitedatapath, d))]
+        subdirs = [
+            d for d in os.listdir(sitedatapath)
+            if os.path.isdir(os.path.join(sitedatapath, d))]
         if f'patient_{pat_id}' in subdirs:
             continue
 
@@ -653,10 +634,10 @@ def all():
 
 if __name__=='__main__':
     
-    leeds_054()
-    # leeds()
-    # bari()
-    # sheffield()
+    sheffield()
+    leeds()
+    bari()
+    
     
     
 
