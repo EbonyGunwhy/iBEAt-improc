@@ -214,22 +214,6 @@ def bari_add_series_name(name, all_series:list):
     all_series.append(new_series_name)
 
 
-def bari_split_series(folder):
-    name = os.path.basename(folder)
-    vol = db.volume(folder, 'EchoTime')
-    vol = vol[0].separate()
-    if vol.size==1: # nothing to split
-        return
-    ref = db.series(folder)[0]
-    patient = os.path.basename(os.path.dirname(folder))
-    for i, scan in enumerate(['_out_phase', '_in_phase']):
-        path = os.path.join(os.path.dirname(folder), name + scan)
-        db.write_volume(vol[i], [path, patient, name, name + scan], ref)
-        os.remove(os.path.join(path, 'dbtree.json'))
-        flatten_folder(path)
-    shutil.rmtree(folder)
-
-
 
 def swap_fat_water(record, dixon, series, image_type):
     for row in record:
