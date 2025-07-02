@@ -342,7 +342,7 @@ def leeds():
         # If the dataset already exists, continue to the next
         subdirs = [d for d in os.listdir(sitedatapath)
            if os.path.isdir(os.path.join(sitedatapath, d))]
-        if f'patient_{pat_id}' in subdirs: 
+        if f'Patient__{pat_id}' in subdirs: 
             continue
 
         # Exception with unique folder structure
@@ -587,7 +587,7 @@ def sheffield():
         subdirs = [
             d for d in os.listdir(sitedatapath)
             if os.path.isdir(os.path.join(sitedatapath, d))]
-        if f'patient_{pat_id}' in subdirs:
+        if f'Patient__{pat_id}' in subdirs:
             continue
 
         # Get the experiment directory
@@ -692,7 +692,7 @@ def turku_ge():
         subdirs = [
             d for d in os.listdir(sitedatapath)
             if os.path.isdir(os.path.join(sitedatapath, d))]
-        if f'patient_{pat_id}' in subdirs:
+        if f'Patient__{pat_id}' in subdirs:
             continue
 
         # Get the experiment directory
