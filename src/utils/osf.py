@@ -3,9 +3,8 @@ import re
 
 import time
 from tqdm import tqdm
-import requests
 from osfclient.api import OSF
-from requests.exceptions import HTTPError
+import traceback
 
 
 def token():
@@ -117,7 +116,8 @@ def upload_folder(osf_token, project_id, local_folder_path, osf_target_folder=''
             break
         except Exception as e:
             time_elapsed = (time.time()-start_time)/60
-            print(f'Uploaded interrupted after {attempts} attempts in {time_elapsed} minutes: {e}')
+            print(f'Uploaded interrupted after {attempts} attempts in {time_elapsed} minutes. \n' 
+                  f'Detailed error message: {traceback.format_exc()}')
             if time_elapsed >= reset_after_mins:
                 attempts = 1
                 start_time = time.time()

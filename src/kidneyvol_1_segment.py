@@ -116,9 +116,11 @@ logging.basicConfig(
 )
 
 
+def segment_site(site, batch_size=None):
 
-
-def segment_site(sitedatapath, sitemaskpath):
+    sitedatapath = os.path.join(datapath, site, "Patients") 
+    sitemaskpath = os.path.join(maskpath, site, "Patients")
+    os.makedirs(sitemaskpath, exist_ok=True)
 
     # List of selected dixon series
     record = utils.data.dixon_record()
@@ -128,6 +130,7 @@ def segment_site(sitedatapath, sitemaskpath):
     series_out_phase = [s for s in series if s[3][0][-9:]=='out_phase']
 
     # Loop over the out-phase series
+    count = 0
     for series_op in series_out_phase:
 
         # Patient and output study
@@ -179,11 +182,14 @@ def segment_site(sitedatapath, sitemaskpath):
         if model=='totseg':
             try:
                 device = 'gpu' if torch.cuda.is_available() else 'cpu'
-                rois = miblab.totseg(op, cutoff=0.01, task='total_mr', device=device)
+                label_vol = miblab.totseg(op, cutoff=0.01, task='total_mr', device=device)
+                # Extract kidneys only
+                label_array = label_vol.values
+                label_array[~np.isin(label_array, [2,3])] = 0
+                # Relabel left and right
+                label_array[label_array==3] = 1
                 # Remove smaller disconnected clusters
-                rois = {roi:radiomics.largest_cluster(vol.values) for roi, vol in rois.items() if roi in ['kidney_left', 'kidney_right']}
-                # Reverse left and right for consistency with miblab models
-                rois = {key:rois[key] for key in ['kidney_left', 'kidney_right']}
+                label_array = radiomics.largest_cluster_label(label_array)
             except Exception as e:
                 logging.error(f"Error processing {patient} {sequence} with total segmentator: {e}")
                 continue
@@ -206,51 +212,30 @@ def segment_site(sitedatapath, sitemaskpath):
                 logging.error(f"{patient} {sequence} error building 4-channel input array: {e}")
                 continue
             try:
-                rois = miblab.kidney_pc_dixon(array, model, verbose=True)
+                label_array = miblab.kidney_pc_dixon(array, verbose=True)
             except Exception as e:
                 logging.error(f"Error processing {patient} {sequence} with nnunet: {e}")
                 continue
-            
-        # Write in dicom as integer label arrays to save space
-        print(f'Saving results')
-        mask = np.zeros(rois['kidney_left'].shape, dtype=np.int16)
-        for j, roi in enumerate(rois):
-            mask += (j+1) * rois[roi].astype(np.int16)
-        db.write_volume((mask, op.affine), mask_series, ref=series_op)
+        
+        db.write_volume((label_array, op.affine), mask_series, ref=series_op)
 
+        count += 1 
+        if batch_size is not None:
+            if count >= batch_size:
+                return
 
-
-def leeds():
-    sitedatapath = os.path.join(datapath, "Leeds", "Patients") 
-    sitemaskpath = os.path.join(maskpath, "Leeds", "Patients")
-    os.makedirs(sitemaskpath, exist_ok=True)
-    segment_site(sitedatapath, sitemaskpath)
-
-    
-def bari():
-    sitedatapath = os.path.join(datapath, "Bari", "Patients") 
-    sitemaskpath = os.path.join(maskpath, "Bari", "Patients")
-    os.makedirs(sitemaskpath, exist_ok=True)
-    segment_site(sitedatapath, sitemaskpath)
-
-
-def sheffield():
-    sitedatapath = os.path.join(datapath, "Sheffield", "Patients") 
-    sitemaskpath = os.path.join(maskpath, "Sheffield", "Patients")
-    os.makedirs(sitemaskpath, exist_ok=True)
-    segment_site(sitedatapath, sitemaskpath)
 
 
 def all():
-    sheffield()
-    leeds()
-    bari()
+    segment_site('Sheffield')
+    segment_site('Leeds')
+    segment_site('Bari')
 
 
 if __name__=='__main__':
-    sheffield()
-    leeds()
-    bari()
+    segment_site('Sheffield')
+    segment_site('Leeds')
+    segment_site('Bari')
     
     
     

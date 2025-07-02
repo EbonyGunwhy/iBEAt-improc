@@ -6,6 +6,8 @@ import dbdicom as db
 import miblab
 import torch
 
+import utils.data
+
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data') 
 maskpath = os.path.join(os.getcwd(), 'build', 'vat_1_segment') 
@@ -20,82 +22,77 @@ logging.basicConfig(
 )
 
 
-def segment_site(sitedatapath, sitemaskpath):
+def segment_site(site, batch_size=None):
+
+    sitedatapath = os.path.join(datapath, site, "Patients") 
+    sitemaskpath = os.path.join(maskpath, site, "Patients")
+    os.makedirs(sitemaskpath, exist_ok=True)
+
+    # List of selected dixon series
+    record = utils.data.dixon_record()
 
     # Get out phase series
     series = db.series(sitedatapath)
-    series_out_phase = [s for s in series if s[-1][0][-9:]=='out_phase']
+    series_out_phase = [s for s in series if s[3][0][-9:]=='out_phase']
 
     # Loop over the out-phase series
+    count = 0
     for series_op in series_out_phase:
 
         # Patient and output study
         patient = series_op[1]
-        data_study = series_op[:3]
-        mask_study = [sitemaskpath, patient, (f'tissue_types_mr', 0)]
-        series_desc = series_op[-1][0][:-10]
+        study = series_op[2][0]
+        series_op_desc = series_op[3][0]
+        sequence = series_op_desc[:-10]
+
+        # Skip if it is not the right sequence
+        selected_sequence = utils.data.dixon_series_desc(record, patient, study)
+        if sequence != selected_sequence:
+            continue
+
+        # Skip if the masks already exist
+        mask_study = [sitemaskpath, patient, (study,0)]
+        mask_series = mask_study + [(f'tissue_types_mr', 0)]
+        if mask_series in db.series(mask_study):
+            continue
 
         # Other source data series
-        series_fi = data_study + [(series_desc + '_fat', 0)]
-        channels = 4 if series_fi in db.series(data_study) else 2
+        series_wi = series_op[:3] + [(sequence + '_water', 0)]
 
-        # Segment on fat if available, else use opposed phase
-        source = series_op if channels==2 else series_fi
+        # Read volumes
+        if series_wi in db.series(series_op[:3]):
+            vol = db.volume(series_wi)
+        else:
+            vol = db.volume(series_op)
 
-        # Perform the single-channel segmentation (totseg)
-        mask_series = mask_study + [(f'{series_desc}', 0)]
+        # Perform the segmentation
+        try:
+            device = 'gpu' if torch.cuda.is_available() else 'cpu'
+            label_vol = miblab.totseg(vol, cutoff=0.01, task='tissue_types_mr', device=device)
+        except Exception as e:
+            logging.error(f"Error processing {patient} {sequence} with total segmentator: {e}")
+            continue
 
-        # Skip those that have been done already
-        if mask_series not in db.series(mask_study):
+        # Save results
+        db.write_volume(label_vol, mask_series, ref=series_op)
 
-            # Read the source volume
-            try:
-                source_vol = db.volume(source)
-            except Exception as e:
-                logging.error(f"Patient {patient} - error reading F-W {series_desc}: {e}")
-                continue
-            
-            # Perform the segmentation
-            try:
-                device = 'gpu' if torch.cuda.is_available() else 'cpu'
-                rois = miblab.totseg(source_vol, cutoff=0.01, task='tissue_types_mr', device=device)
-                rois = {roi:vol.values for roi, vol in rois.items()}
-            except Exception as e:
-                logging.error(f"Error processing {patient} {series_desc} with total segmentator: {e}")
-                continue
+        count += 1 
+        if batch_size is not None:
+            if count >= batch_size:
+                return
 
-            # Write in dicom as integer label arrays to save space
-            print('Saving total segmentator results')
-            mask = np.zeros(rois['subcutaneous_fat'].shape, dtype=np.int16)
-            for j, roi in enumerate(rois):
-                mask += (j+1) * rois[roi].astype(np.int16)
-            db.write_volume((mask, source_vol.affine), mask_series, ref=series_op)
-
-
-
-def leeds():
-    sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients") 
-    sitemaskpath = os.path.join(maskpath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients")
-    os.makedirs(sitemaskpath, exist_ok=True)
-    segment_site(sitedatapath, sitemaskpath)
-    
-
-
-def bari():
-    sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Bari", "Bari_Patients") 
-    sitemaskpath = os.path.join(maskpath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
-    os.makedirs(sitemaskpath, exist_ok=True)
-    segment_site(sitedatapath, sitemaskpath)
 
 
 def all():
-    #leeds()
-    bari()
+    segment_site('Sheffield')
+    segment_site('Leeds')
+    segment_site('Bari')
 
 
 if __name__=='__main__':
-    # bari()
-    leeds()
+    segment_site('Sheffield')
+    segment_site('Leeds')
+    segment_site('Bari')
     
     
     

@@ -29,6 +29,22 @@ def largest_cluster(array:np.ndarray)->np.ndarray:
     return label_img==max_label
 
 
+def largest_cluster_label(array:np.ndarray)->np.ndarray:
+    """Given a label image, return a new label image with only the 
+    largest cluster for each label.
+    """
+    output_array = np.zeros(array.shape, dtype=np.int16)
+    for label_value in np.unique(array):
+        if label_value == 0:
+            continue
+        mask = np.zeros(array.shape)
+        mask[array==label_value] = 1
+        mask = largest_cluster(mask)
+        output_array[mask] = label_value
+    return output_array
+
+
+
 
 biomarker_units = {
     'firstorder_Energy': 'Intensity^2 units',

@@ -4,7 +4,6 @@ import logging
 import numpy as np
 import dbdicom as db
 import miblab
-import vreg
 
 import utils.data
 
@@ -13,7 +12,7 @@ EXCLUDE = []
 
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data') 
-maskpath = os.path.join(os.getcwd(), 'build', 'kidney_unetr_1_segment') 
+maskpath = os.path.join(os.getcwd(), 'build', 'kidney_nnunet_1_segment') 
 os.makedirs(maskpath, exist_ok=True)
 
 
@@ -24,7 +23,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-
+      
 def segment_site(site, batch_size=None):
 
     sitedatapath = os.path.join(datapath, site, "Patients") 
@@ -88,23 +87,21 @@ def segment_site(site, batch_size=None):
         except Exception as e:
             logging.error(f"{patient} {sequence} error building 4-channel input array: {e}")
             continue
-        # vol = vreg.volume(array, op.affine)
-        # rois = miblab.kidney_pc_dixon_unetr(vol, verbose=True)
         try:
-            vol = vreg.volume(array, op.affine)
-            rois = miblab.kidney_pc_dixon_unetr(vol, verbose=True)
+            rois = miblab.kidney_pc_dixon(array, verbose=True)
         except Exception as e:
             logging.error(f"Error processing {patient} {sequence} with unetr: {e}")
             continue
             
         # Write in dicom as integer label arrays to save space
-        db.write_volume(rois, mask_series, ref=series_op)
-        
+        db.write_volume((rois, op.affine), mask_series, ref=series_op)
+
         count += 1 
         if batch_size is not None:
             if count >= batch_size:
                 return
-            
+
+
 
 
 def all(batch_size=None):

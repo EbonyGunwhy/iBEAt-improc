@@ -7,5 +7,5 @@ import kidney_unetr_2_display
 
 if __name__=='__main__':
 
-    kidney_unetr_1_segment.segment_site('Bari', 1)
-    kidney_unetr_2_display.mosaic('Bari')
+    kidney_unetr_1_segment.segment_site('Sheffield', 1)
+    kidney_unetr_2_display.mosaic('Sheffield')

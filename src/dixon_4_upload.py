@@ -26,8 +26,7 @@ def upload(site):
 
 if __name__=='__main__':
 
+    upload('Sheffield')
+    upload('Bari')
     upload('Leeds')
-    # upload('Bari')
-    # upload('Sheffield')
 
-    # TODO: dbdicom folders should not use square brackets
