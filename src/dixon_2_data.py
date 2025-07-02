@@ -17,7 +17,6 @@ import vreg
 
 
 EXCLUDE = [
-    '1128_018', # Martin has sent the new ones through - should appear on XNAT (not happened, checked with Kevin)
     '7128_054', # TODO: (Passed on to Kevin). Post contrast outphase not complete (233/248 slices), water map missing. Looks like incomplete data transfer. 
     '7128_065', # TODO: (Passed on to Kevin). Missing post-contrast In-phase and Out-phase (fat and water are there) and precontrast Water (the others are there)
     '7128_148', # TODO: (Passed on to Kevin). Missing post-contrast out_phase (fat, in-phase and water are there). Missing precontrast water (fat, inphase, outphase are there)
