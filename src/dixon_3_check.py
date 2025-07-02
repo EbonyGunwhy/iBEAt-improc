@@ -99,7 +99,7 @@ def site_fatwater_swap(sitedatapath, file):
 
 
 def fatwater_swap():
-    for site in ['Leeds', 'Sheffield', 'Bari']:
+    for site in ['Leeds', 'Sheffield', 'Bari', 'Turku_GE']:
         sitedatapath = os.path.join(datapath, site, "Patients") 
         sitepngpath = os.path.join(data_qc_path, f'{site}_fat_water_swap.png')
         site_fatwater_swap(sitedatapath, sitepngpath)
@@ -126,7 +126,7 @@ def fatwater_swap_record_template():
     swap_record = [
         ['Site', 'Patient', 'Study', 'Series', 'Swapped']
     ]
-    for site in ['Leeds', 'Sheffield', 'Bari']:
+    for site in ['Leeds', 'Sheffield', 'Bari', 'Turku_GE']:
         sitedatapath = os.path.join(datapath, site, "Patients") 
         if os.path.exists(sitedatapath):
             for series in tqdm(db.series(sitedatapath), desc=f"Building record for {site}"):
@@ -155,13 +155,13 @@ def count_dixons():
     data = [
         ['Site', 'Patient', 'Study', 'Dixon', 'Dixon_post_contrast', 'Use']
     ]
-    for site in ['Leeds', 'Sheffield', 'Bari']:
+    for site in ['Leeds', 'Sheffield', 'Bari', 'Turku_GE']:
         sitedatapath = os.path.join(datapath, site, "Patients") 
         for study in tqdm(db.studies(sitedatapath), desc=f"Counting dixons for {site}"):
             patient_id = study[1]
             study_desc = study[2][0]
             series = db.series(study)
-            series_desc = [s[3][0] for s in series]
+            series_desc = [s[3][0] for s in series] #removed s[3][0] to make it work
             row = [site, patient_id, study_desc, 0, 0, '']
             for desc in ['Dixon', 'Dixon_post_contrast']:
                 cnt=0
@@ -186,8 +186,8 @@ def all():
 
 
 if __name__=='__main__':
-    # fatwater_swap_record_template()
-    # fatwater_swap()
+    fatwater_swap_record_template()
+    fatwater_swap()
     count_dixons()
 
     # TODO export more detailed report of dixon data before running the segmentation

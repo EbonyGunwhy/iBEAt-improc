@@ -81,12 +81,32 @@ def sheffield_patients():
         ],
     )
 
+def turku_ge_patients():
+    username, password = xnat.credentials()
+    xnat.download_scans(
+        xnat_url="https://qib.shef.ac.uk",
+        username=username,
+        password=password,
+        output_dir=path,
+        project_id="BEAt-DKD-WP4-Turku",
+        subject_label="Turku_Patients_GE",
+        attr="series_description",
+        value=[
+            "WATER: T1_abdomen_dixon_cor_bh", 
+            "FAT: T1_abdomen_dixon_cor_bh",
+            "InPhase: T1_abdomen_dixon_cor_bh",
+            "OutPhase: T1_abdomen_dixon_cor_bh",
+            "WATER: T1_abdomen_post_contrast_dixon_cor_bh",
+            "FAT: T1_abdomen_post_contrast_dixon_cor_bh",
+            "InPhase: T1_abdomen_post_contrast_dixon_cor_bh",
+            "OutPhase: T1_abdomen_post_contrast_dixon_cor_bh"
+        ],
+    )
 
-
-def all():
-    leeds_patients()
-    bari_patients()
-    sheffield_patients()
+# def all():
+#     leeds_patients()
+#     bari_patients()
+#     sheffield_patients()
     # leeds_volunteers()
 
 
@@ -95,7 +115,8 @@ if __name__=='__main__':
    
     # leeds_patients()
     # bari_patients()
-    sheffield_patients()
+    # sheffield_patients()
     # leeds_volunteers()
+    turku_ge_patients()
 
 

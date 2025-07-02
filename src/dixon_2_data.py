@@ -80,6 +80,15 @@ def sheffield_ibeat_patient_id(folder):
         id = '7128_157'
     return id
 
+def turku_ge_ibeat_patient_id(folder):
+    id = folder[4:].replace('-', '_')
+    if "followup" in id:
+        id = id[:8] + "_followup"
+    else:
+        id = id[:8]
+
+    return id
+
 def leeds_rename_folder(folder):
 
     # If a series is among the first 20, assume it is precontrast
@@ -194,7 +203,47 @@ def sheffield_add_series_desc(folder, all_series:list):
         counter += 1
     all_series.append(new_series_desc)
 
+def turku_add_series_desc(folder, all_series:list):
 
+    # Read series description from file
+    file = os.listdir(folder)[0]
+    ds = pydicom.dcmread(os.path.join(folder, file))
+    original_series_desc = ds['SeriesDescription'].value
+    
+    # For Philips decide based on EchoTime - no fat-water included
+    if ds['Manufacturer'].value == 'Philips Healthcare':
+        if ds['EchoTime'].value < 2:
+            if original_series_desc == 'T1w_abdomen_dixon_cor_bh':
+                series_desc = 'Dixon_1_out_phase'
+            else:
+                series_desc = 'Dixon_post_contrast_1_out_phase'
+        else:
+            if original_series_desc == 'T1w_abdomen_dixon_cor_bh':
+                series_desc = 'Dixon_1_in_phase'
+            else:
+                series_desc = 'Dixon_post_contrast_1_in_phase'
+
+    # For GE translate descriptions to standard convention
+    else:
+        new_series_desc = {
+            'WATER: T1_abdomen_dixon_cor_bh': 'Dixon_1_water',
+            'FAT: T1_abdomen_dixon_cor_bh': 'Dixon_1_fat',
+            'InPhase: T1_abdomen_dixon_cor_bh': 'Dixon_1_in_phase',
+            'OutPhase: T1_abdomen_dixon_cor_bh': 'Dixon_1_out_phase',
+            'WATER: T1_abdomen_post_contrast_dixon_cor_bh': 'Dixon_post_contrast_1_water',
+            'FAT: T1_abdomen_post_contrast_dixon_cor_bh': 'Dixon_post_contrast_1_fat',
+            'InPhase: T1_abdomen_post_contrast_dixon_cor_bh': 'Dixon_post_contrast_1_in_phase',
+            'OutPhase: T1_abdomen_post_contrast_dixon_cor_bh': 'Dixon_post_contrast_1_out_phase',
+        }
+        series_desc = new_series_desc[original_series_desc]
+
+    # Increment counter if needed
+    new_series_desc = series_desc
+    counter = 2
+    while new_series_desc in all_series:
+        new_series_desc = series_desc.replace('_1_', f'_{counter}_')
+        counter += 1
+    all_series.append(new_series_desc)
 
 def bari_add_series_name(name, all_series:list):
 
@@ -212,7 +261,6 @@ def bari_add_series_name(name, all_series:list):
         new_series_name = series_name.replace('_1_', f'_{counter}_')
         counter += 1
     all_series.append(new_series_name)
-
 
 
 def swap_fat_water(record, dixon, series, image_type):
@@ -289,6 +337,7 @@ def leeds():
 
         # Get a standardized ID from the folder name
         pat_id = leeds_ibeat_patient_id(os.path.basename(pat))
+
 
         # If the dataset already exists, continue to the next
         subdirs = [d for d in os.listdir(sitedatapath)
@@ -607,20 +656,126 @@ def sheffield():
                             else:
                                 db.write_volume(dixon_vol, dixon_clean, ref=dixon)
 
+def turku_ge():
+
+    # Clean Leeds patient data
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Turku","Turku_Patients_GE")
+    sitedatapath = os.path.join(datapath, "Turku_GE", "Patients") 
+    os.makedirs(sitedatapath, exist_ok=True)
+
+    # Read fat-water swap record to avoid repeated reading at the end
+    record = os.path.join(os.getcwd(), 'src', 'data', 'fat_water_swap_record.csv')
+    with open(record, 'r') as file:
+        reader = csv.reader(file)
+        record = [row for row in reader]
+
+    # Loop over all patients
+    patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
+    for patient in tqdm(patients, desc='Building clean database'):
+
+        # Get a standardized ID from the folder name
+        pat_id = turku_ge_ibeat_patient_id(os.path.basename(patient))
+
+        if "_followup" in pat_id:
+            time_point ="Followup"
+            pat_id = pat_id[0:8]
+        else:
+            time_point ="Baseline"
+            pat_id = pat_id[0:8]
+
+        # Corrupted data
+        if pat_id in EXCLUDE:
+            continue
+
+        # If the dataset already exists, continue to the next
+        # This needs to check sequences not patients
+        subdirs = [
+            d for d in os.listdir(sitedatapath)
+            if os.path.isdir(os.path.join(sitedatapath, d))]
+        if f'patient_{pat_id}' in subdirs:
+            continue
+
+        # Get the experiment directory
+        experiment_path = os.path.join(patient)
+
+        # Find all zip series in the experiment and sort by series number
+        all_zip_series = [f for f in os.listdir(experiment_path) if os.path.isfile(os.path.join(experiment_path, f))]
+        all_zip_series = sorted(all_zip_series, key=lambda x: int(x[7:-4]))
+
+        # Note:
+        # In Sheffield XNAT the Dixon series are not saved in the proper order, which looks messy in the database.
+        # So all series for a single patient are extracted first, then they are saved to the 
+        # database in the proper order.
+
+        # Extract all series of the patient
+        with tempfile.TemporaryDirectory() as temp_folder:
+
+            pat_series = []
+            tmp_series_folder = {} # keep a list of folders for each series
+    
+            for zip_series in all_zip_series:
+
+                # Get the name of the zip file without extension.
+                zip_name = zip_series[:-4]
+
+                # Extract to a temporary folder and flatten it
+                try:
+                    extract_to = os.path.join(temp_folder, zip_name)
+                    with zipfile.ZipFile(os.path.join(experiment_path, zip_series), 'r') as zip_ref:
+                        zip_ref.extractall(extract_to)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
+                    continue
+                flatten_folder(extract_to)
+
+                # Add new series to the list 
+                try:
+                    turku_add_series_desc(extract_to, pat_series)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
+                    continue
+
+                # Save in dictionary
+                tmp_series_folder[pat_series[-1]] = extract_to
+
+
+            # Write the series to the database in the proper order
+            for series in ['Dixon', 'Dixon_post_contrast']:
+                for counter in [1,2,3]: # never more than 3 repetitions
+                    for image_type in ['out_phase', 'in_phase', 'fat', 'water']:
+                        series_desc = f'{series}_{counter}_{image_type}'
+                        if series_desc in tmp_series_folder:
+                            extract_to = tmp_series_folder[series_desc]
+                            # Copy to the database using the harmonized names
+                            dixon = db.series(extract_to)[0]
+
+                            dixon_clean = [sitedatapath, pat_id, time_point, series_desc]
+                            # Perform fat-water swap if needed
+                            #dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
+                            # Write to database.
+                            # db.copy(dixon, dixon_clean)
+                            try:
+                                dixon_vol = db.volume(dixon)
+                            except Exception as e:
+                                logging.error(f"Patient {pat_id} - {series_desc}: {e}")
+                            else:
+                                db.write_volume(dixon_vol, dixon_clean, ref=dixon)
 
 
 
 def all():
-    leeds()
-    bari()
-    sheffield()
+    # leeds()
+    # bari()
+    # sheffield()
+    turku_ge()
 
 
 if __name__=='__main__':
     
-    sheffield()
-    leeds()
-    bari()
+    # sheffield()
+    # leeds()
+    # bari()
+    turku_ge()
     
     
     
