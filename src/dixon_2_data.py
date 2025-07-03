@@ -658,8 +658,8 @@ def sheffield():
 def turku_ge():
 
     # Clean Leeds patient data
-    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Turku","Turku_Patients_GE")
-    sitedatapath = os.path.join(datapath, "Turku_GE", "Patients") 
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Turku","Turku_Patients")
+    sitedatapath = os.path.join(datapath, "Turku", "Patients") 
     os.makedirs(sitedatapath, exist_ok=True)
 
     # Read fat-water swap record to avoid repeated reading at the end
@@ -675,6 +675,8 @@ def turku_ge():
         # Get a standardized ID from the folder name
         pat_id = turku_ge_ibeat_patient_id(os.path.basename(patient))
 
+        # 5128_001
+
         if "_followup" in pat_id:
             time_point ="Followup"
             pat_id = pat_id[0:8]
@@ -686,12 +688,9 @@ def turku_ge():
         if pat_id in EXCLUDE:
             continue
 
-        # If the dataset already exists, continue to the next
-        # This needs to check sequences not patients
-        subdirs = [
-            d for d in os.listdir(sitedatapath)
-            if os.path.isdir(os.path.join(sitedatapath, d))]
-        if f'Patient__{pat_id}' in subdirs:
+        # If the study
+        dixon_clean_study = [sitedatapath, pat_id, time_point]
+        if dixon_clean_study in db.studies(sitedatapath):
             continue
 
         # Get the experiment directory
@@ -748,7 +747,7 @@ def turku_ge():
                             # Copy to the database using the harmonized names
                             dixon = db.series(extract_to)[0]
 
-                            dixon_clean = [sitedatapath, pat_id, time_point, series_desc]
+                            dixon_clean = dixon_clean_study + [series_desc]
                             # Perform fat-water swap if needed
                             #dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
                             # Write to database.

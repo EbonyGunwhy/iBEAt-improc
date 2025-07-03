@@ -89,7 +89,7 @@ def turku_ge_patients():
         password=password,
         output_dir=path,
         project_id="BEAt-DKD-WP4-Turku",
-        subject_label="Turku_Patients_GE",
+        subject_label="Turku_Patients",
         attr="series_description",
         value=[
             "WATER: T1_abdomen_dixon_cor_bh", 

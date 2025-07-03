@@ -19,9 +19,13 @@ dixon_3_check: perform checks on the database
 import dixon_1_download
 import dixon_2_data
 import dixon_3_check
+import kidneyvol_1_segment
 
 if __name__=='__main__':
 
-    # dixon_1_download.all()
-    # dixon_2_data.all()
-    # dixon_3_check.all()
+    dixon_1_download.leeds_patients()
+    dixon_2_data.leeds()
+    kidneyvol_1_segment.segment_site('Leeds')
+    dixon_1_download.sheffield_patients()
+    dixon_2_data.sheffield()
+    kidneyvol_1_segment.segment_site('Sheffield')

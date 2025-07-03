@@ -233,8 +233,8 @@ def all():
 
 
 if __name__=='__main__':
-    segment_site('Sheffield')
-    segment_site('Leeds')
+    # segment_site('Sheffield')
+    # segment_site('Leeds')
     segment_site('Bari')
     
     
