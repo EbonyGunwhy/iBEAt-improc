@@ -9,9 +9,26 @@ import dbdicom as db
 from utils import data
 
 
-datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-maskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_1_segment')
-editpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_3_edit')
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!!!!!!! DANGER ZONE !!!!!!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+SITE = 'Bari'
+# OUTPUT_PATH = os.path.join(os.getcwd(), 'build')
+OUTPUT_PATH = 'G:\Shared drives\iBEAt-build'
+
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!!!!!!!!! END !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
+INPUT_PATH = 'G:\Shared drives\iBEAt-build'
+datapath = os.path.join(INPUT_PATH, 'dixon_2_data')
+maskpath = os.path.join(INPUT_PATH, 'kidneyvol_1_segment')
+editpath = os.path.join(OUTPUT_PATH, 'kidneyvol_3_edit')
 os.makedirs(editpath, exist_ok=True)
 
 
@@ -69,7 +86,11 @@ def edit_mask_with_napari(image_3d: np.ndarray, mask_3d: np.ndarray) -> np.ndarr
     return mask_layer.data
 
 
-def edit_auto_masks(sitedatapath, sitemaskpath, siteeditpath):
+def edit_auto_masks(site):
+
+    sitedatapath = os.path.join(datapath, site, "Patients") 
+    sitemaskpath = os.path.join(maskpath, site, "Patients")
+    siteeditpath = os.path.join(editpath, site, "Patients")
 
     # List of selected dixon series
     record = data.dixon_record()
@@ -110,32 +131,11 @@ def edit_auto_masks(sitedatapath, sitemaskpath, siteeditpath):
             db.write_volume(vol, edited_mask_series, ref=series_op)
 
 
-def leeds():
-    sitedatapath = os.path.join(datapath, "Leeds", "Patients") 
-    sitemaskpath = os.path.join(maskpath, "Leeds", "Patients")
-    siteeditpath = os.path.join(editpath, "Leeds", "Patients")
-    edit_auto_masks(sitedatapath, sitemaskpath, siteeditpath)
-
-def bari():
-    sitedatapath = os.path.join(datapath, "Bari", "Patients") 
-    sitemaskpath = os.path.join(maskpath, "Bari", "Patients")
-    siteeditpath = os.path.join(editpath, "Bari", "Patients")
-    edit_auto_masks(sitedatapath, sitemaskpath, siteeditpath)
-
-def sheffield():
-    sitedatapath = os.path.join(datapath, "Sheffield", "Patients") 
-    sitemaskpath = os.path.join(maskpath, "Sheffield", "Patients")
-    siteeditpath = os.path.join(editpath, "Sheffield", "Patients")
-    edit_auto_masks(sitedatapath, sitemaskpath, siteeditpath)
-
-
 def all():
-    bari()
-    leeds()
-    sheffield()
+    edit_auto_masks('Bari')
+    edit_auto_masks('Leeds')
+    edit_auto_masks('Sheffield')
 
 
 if __name__=='__main__':
-    bari()
-    # leeds()
-    # sheffield()
+    edit_auto_masks(SITE)
