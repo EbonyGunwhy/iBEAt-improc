@@ -81,12 +81,14 @@ def sheffield_ibeat_patient_id(folder):
 
 def turku_ge_ibeat_patient_id(folder):
     id = folder[4:].replace('-', '_')
-    if "followup" in id:
-        id = id[:8] + "_followup"
+    if "_followup" in id:
+        time_point ="Followup"
+        id = id[0:8]
     else:
-        id = id[:8]
+        time_point ="Baseline"
+        id = id[0:8]
 
-    return id
+    return id, time_point
 
 def leeds_rename_folder(folder):
 
@@ -673,16 +675,7 @@ def turku_ge():
     for patient in tqdm(patients, desc='Building clean database'):
 
         # Get a standardized ID from the folder name
-        pat_id = turku_ge_ibeat_patient_id(os.path.basename(patient))
-
-        # 5128_001
-
-        if "_followup" in pat_id:
-            time_point ="Followup"
-            pat_id = pat_id[0:8]
-        else:
-            time_point ="Baseline"
-            pat_id = pat_id[0:8]
+        pat_id, time_point = turku_ge_ibeat_patient_id(os.path.basename(patient))
 
         # Corrupted data
         if pat_id in EXCLUDE:
