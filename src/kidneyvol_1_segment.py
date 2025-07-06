@@ -17,7 +17,7 @@ EXCLUDE = [
     '7128_149', # miblab nnunet Segmentation failed: horseshoe kidney
 ]
 
-# Exceptions: failed with nnunet/unetr for no obvious reason
+# Exceptions: failed with nnunet for no obvious reason
 TOTSEG = [
     '7128_085',
 
@@ -31,6 +31,7 @@ TOTSEG = [
     '4128_016',
     '4128_017',
     '4128_024',
+    '4128_030',
     '4128_043',
     '4128_051',
     '4128_052',
@@ -48,6 +49,7 @@ TOTSEG = [
     '7128_040',
     '7128_044',
     '7128_047',
+    '7128_055', # failed with nnunet
     '7128_056',
     '7128_059',
     '7128_064',
@@ -92,6 +94,8 @@ TOTSEG = [
     '7128_144',
     '7128_146',
     '7128_147',
+    '7128_148',
+    '7128_155',
     '7128_156',
     '7128_157',
     '7128_160',
@@ -139,10 +143,6 @@ def segment_site(site, batch_size=None):
         series_op_desc = series_op[3][0]
         sequence = series_op_desc[:-10]
 
-        # Skip those marked for exclusion
-        if patient in EXCLUDE:
-            continue
-
         # Skip if it is not the right sequence
         selected_sequence = utils.data.dixon_series_desc(record, patient, study)
         if sequence != selected_sequence:
@@ -178,8 +178,17 @@ def segment_site(site, batch_size=None):
             # Default for 4-channel data is nnunet
             model = 'nnunet'
 
+        # If autosegmentation does not work, draw rectangles in the middle slice 
+        if patient in EXCLUDE:
+            label_array = np.zeros(op.shape, dtype=np.int16)
+            xm = int(np.round(op.shape[0]/2))
+            ym = int(np.round(op.shape[1]/2))
+            zm = int(np.round(op.shape[2]/2))
+            label_array[xm+1:xm+10, ym+1:ym+10, zm] = 1
+            label_array[xm-10:xm-1, ym-10:ym-1, zm] = 2
+
         # If there are only 2 channels, use total segmentator
-        if model=='totseg':
+        elif model=='totseg':
             try:
                 device = 'gpu' if torch.cuda.is_available() else 'cpu'
                 label_vol = miblab.totseg(op, cutoff=0.01, task='total_mr', device=device)
@@ -234,8 +243,8 @@ def all():
 
 if __name__=='__main__':
     # segment_site('Sheffield')
-    # segment_site('Leeds')
-    segment_site('Bari')
+    segment_site('Leeds')
+    #segment_site('Bari')
     
     
     

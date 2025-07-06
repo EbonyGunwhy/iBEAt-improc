@@ -14,8 +14,8 @@ from utils import data
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 SITE = 'Bari'
-# OUTPUT_PATH = os.path.join(os.getcwd(), 'build')
-OUTPUT_PATH = 'G:\Shared drives\iBEAt-build'
+OUTPUT_PATH = os.path.join(os.getcwd(), 'build')
+# OUTPUT_PATH = 'G:\Shared drives\iBEAt-build'
 
 
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -10,6 +10,11 @@ from utils import xnat
 path = os.path.join(os.getcwd(), 'build', 'dixon_1_download')  
 os.makedirs(path, exist_ok=True)
 
+# Checked with Kevin
+# Sheffield 7128-048: localizer only - check transfer
+# Sheffield 7128-068: data only until T2 haste
+# Sheffield 7128-141: seems complete but data are in a different format - one file per series
+
 
 def leeds_patients():
     username, password = xnat.credentials()
@@ -103,6 +108,98 @@ def turku_ge_patients():
         ],
     )
 
+
+def bordeaux_patients_baseline():
+    username, password = xnat.credentials()
+    xnat.download_scans(
+        xnat_url="https://qib.shef.ac.uk",
+        username=username,
+        password=password,
+        output_dir=path,
+        project_id="BEAt-DKD-WP4-Bordeaux",
+        subject_label="Bordeaux_Patients_Baseline",
+        attr="series_description",
+        value=[
+            "T1w_abdomen_dixon_cor_bh_opp", 
+            "T1w_abdomen_dixon_cor_bh_in",
+            "T1w_abdomen_dixon_cor_bh_F",
+            "T1w_abdomen_dixon_cor_bh_W",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_opp",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_in",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_F",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_W"
+        ],
+    )
+
+def bordeaux_patients_followup():
+    username, password = xnat.credentials()
+    xnat.download_scans(
+        xnat_url="https://qib.shef.ac.uk",
+        username=username,
+        password=password,
+        output_dir=path,
+        project_id="BEAt-DKD-WP4-Bordeaux",
+        subject_label="Bordeaux_Patients_Followup",
+        attr="series_description",
+        value=[
+            "T1w_abdomen_dixon_cor_bh_opp", 
+            "T1w_abdomen_dixon_cor_bh_in",
+            "T1w_abdomen_dixon_cor_bh_F",
+            "T1w_abdomen_dixon_cor_bh_W",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_opp",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_in",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_F",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_W"
+        ],
+    )
+
+def exeter_patients_baseline():
+    username, password = xnat.credentials()
+    xnat.download_scans(
+        xnat_url="https://qib.shef.ac.uk",
+        username=username,
+        password=password,
+        output_dir=path,
+        project_id="BEAt-DKD-WP4-Exeter",
+        subject_label="Exeter_Patients_Baseline",
+        attr="series_description",
+        value=[
+            "T1w_abdomen_dixon_cor_bh_opp", 
+            "T1w_abdomen_dixon_cor_bh_in",
+            "T1w_abdomen_dixon_cor_bh_F",
+            "T1w_abdomen_dixon_cor_bh_W",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_opp",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_in",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_F",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_W"
+        ],
+    )
+
+def exeter_patients_followup():
+    username, password = xnat.credentials()
+    xnat.download_scans(
+        xnat_url="https://qib.shef.ac.uk",
+        username=username,
+        password=password,
+        output_dir=path,
+        project_id="BEAt-DKD-WP4-Exeter",
+        subject_label="Exeter_Patients_Followup",
+        attr="series_description",
+        value=[
+            "T1w_abdomen_dixon_cor_bh_opp", 
+            "T1w_abdomen_dixon_cor_bh_in",
+            "T1w_abdomen_dixon_cor_bh_F",
+            "T1w_abdomen_dixon_cor_bh_W",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_opp",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_in",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_F",
+            "T1w_abdomen_post_contrast_dixon_cor_bh_W"
+        ],
+    )
+
+
+
+
 # def all():
 #     leeds_patients()
 #     bari_patients()
@@ -116,7 +213,13 @@ if __name__=='__main__':
     # leeds_patients()
     # bari_patients()
     # sheffield_patients()
+
+    # turku_ge_patients()
+    bordeaux_patients_baseline()
+    bordeaux_patients_followup()
+    exeter_patients_baseline()
+    exeter_patients_followup()
+
     # leeds_volunteers()
-    turku_ge_patients()
 
 
