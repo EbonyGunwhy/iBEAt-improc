@@ -79,9 +79,10 @@ def site_fatwater_swap(sitedatapath, file):
                 # Add white text with black background in upper-left corner
                 patient_id = series_fat[i][1]
                 series_desc = series_fat[i][-1][0]
+                time_point = "_Followup" if series_fat[i][2][0] == "Followup" else "_Baseline"
                 col.text(
                     0.01, 0.99,                   
-                    f'{patient_id}\n{series_desc}',   
+                    f'{patient_id+time_point}\n{series_desc}',   
                     color='white',
                     fontsize=2,
                     ha='left',
@@ -96,15 +97,11 @@ def site_fatwater_swap(sitedatapath, file):
     fig.savefig(file)
     plt.close()
 
-
-
 def fatwater_swap():
     for site in ['Leeds', 'Sheffield', 'Bari', 'Turku']:
         sitedatapath = os.path.join(datapath, site, "Patients") 
         sitepngpath = os.path.join(data_qc_path, f'{site}_fat_water_swap.png')
         site_fatwater_swap(sitedatapath, sitepngpath)
-
-
 
 def fatwater_swap_record_template():
     """
