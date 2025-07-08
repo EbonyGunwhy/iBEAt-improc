@@ -211,9 +211,9 @@ if __name__=='__main__':
     # sheffield_patients()
     # turku_ge_patients()
 
-    bordeaux_patients_baseline()
+    # bordeaux_patients_baseline()
     # bordeaux_patients_followup()
-    # exeter_patients_baseline()
+    exeter_patients_baseline()
     # exeter_patients_followup()
 
     # leeds_volunteers()

@@ -809,11 +809,9 @@ def bordeaux_patients(visit='Baseline'):
         if pat_id in EXCLUDE:
             continue
 
-        # If the dataset already exists, continue to the next
-        subdirs = [
-            d for d in os.listdir(sitedatapath)
-            if os.path.isdir(os.path.join(sitedatapath, d))]
-        if f'Patient__{pat_id}' in subdirs:
+        # If the study already exists, continue to the next
+        dixon_clean_study = [sitedatapath, pat_id, visit]
+        if dixon_clean_study in db.studies([sitedatapath, pat_id]):
             continue
 
         # Find all zip series in the experiment and sort by series number
@@ -861,7 +859,7 @@ def bordeaux_patients(visit='Baseline'):
                             extract_to = tmp_series_folder[series_desc]
                             # Copy to the database using the harmonized names
                             dixon = db.series(extract_to)[0]
-                            dixon_clean = [sitedatapath, pat_id, visit, series_desc]
+                            dixon_clean = dixon_clean_study + [series_desc]
                             # Perform fat-water swap if needed
                             # dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
                             try:
@@ -886,7 +884,8 @@ if __name__=='__main__':
     # leeds()
     # bari()
     # turku_ge()
-    bordeaux_patients('Baseline')
+    #bordeaux_patients('Baseline')
+    bordeaux_patients('Followup')
     
     
     
