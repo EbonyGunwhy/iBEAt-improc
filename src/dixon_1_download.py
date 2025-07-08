@@ -10,10 +10,6 @@ from utils import xnat
 path = os.path.join(os.getcwd(), 'build', 'dixon_1_download')  
 os.makedirs(path, exist_ok=True)
 
-# Checked with Kevin
-# Sheffield 7128-048: localizer only - check transfer
-# Sheffield 7128-068: data only until T2 haste
-# Sheffield 7128-141: seems complete but data are in a different format - one file per series
 
 
 def leeds_patients():
@@ -213,12 +209,12 @@ if __name__=='__main__':
     # leeds_patients()
     # bari_patients()
     # sheffield_patients()
-
     # turku_ge_patients()
+
     bordeaux_patients_baseline()
-    bordeaux_patients_followup()
-    exeter_patients_baseline()
-    exeter_patients_followup()
+    # bordeaux_patients_followup()
+    # exeter_patients_baseline()
+    # exeter_patients_followup()
 
     # leeds_volunteers()
 

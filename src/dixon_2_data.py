@@ -17,7 +17,10 @@ import vreg
 
 
 EXCLUDE = [
-#    '7128_054', # TODO: (Passed on to Kevin). Post contrast outphase not complete (233/248 slices), water map missing. Looks like incomplete data transfer. 
+    "7128_048", # Sheffield: localizer only - check transfer
+    "7128_068", # Sheffield: data only until T2 haste
+    # Download again:
+    # Sheffield 7128-141: seems complete but data are in a different format - one file per series - reuploaded
 ]
 
 downloadpath = os.path.join(os.getcwd(), 'build', 'dixon_1_download')
@@ -56,6 +59,10 @@ def flatten_folder(root_folder):
             except OSError:
                 print(f"Could not remove {dirpath} — not empty or in use.")
 
+
+def bordeaux_ibeat_patient_id(folder):
+    # iBE-2128-001_baseline
+    return folder[4:12].replace('-', '_')
 
 def leeds_ibeat_patient_id(folder):
     if folder[:3]=='iBE':
@@ -157,6 +164,34 @@ def leeds_add_series_name(folder, all_series:list):
         new_series_name = series_name.replace('_1_', f'_{counter}_')
         counter += 1
     all_series.append(new_series_name)
+
+
+def bordeaux_add_series_desc(folder, all_series:list):
+
+    # Read series description from file
+    file = os.listdir(folder)[0]
+    ds = pydicom.dcmread(os.path.join(folder, file))
+    original_series_desc = ds['SeriesDescription'].value
+    
+    new_series_desc = {
+        "T1w_abdomen_dixon_cor_bh_opp": 'Dixon_1_out_phase', 
+        "T1w_abdomen_dixon_cor_bh_in": 'Dixon_1_in_phase',
+        "T1w_abdomen_dixon_cor_bh_F": 'Dixon_1_fat',
+        "T1w_abdomen_dixon_cor_bh_W": 'Dixon_1_water',
+        "T1w_abdomen_post_contrast_dixon_cor_bh_opp": 'Dixon_post_contrast_1_out_phase',
+        "T1w_abdomen_post_contrast_dixon_cor_bh_in": 'Dixon_post_contrast_1_in_phase',
+        "T1w_abdomen_post_contrast_dixon_cor_bh_F": 'Dixon_post_contrast_1_fat',
+        "T1w_abdomen_post_contrast_dixon_cor_bh_W": 'Dixon_post_contrast_1_water',
+    }
+    series_desc = new_series_desc[original_series_desc]
+
+    # Increment counter if needed
+    new_series_desc = series_desc
+    counter = 2
+    while new_series_desc in all_series:
+        new_series_desc = series_desc.replace('_1_', f'_{counter}_')
+        counter += 1
+    all_series.append(new_series_desc)
 
 
 def sheffield_add_series_desc(folder, all_series:list):
@@ -750,6 +785,93 @@ def turku_ge():
                                 db.write_volume(dixon_vol, dixon_clean, ref=dixon)
 
 
+def bordeaux_patients(visit='Baseline'):
+
+    # Clean Leeds patient data
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Bordeaux", f"Bordeaux_Patients_{visit}")
+    sitedatapath = os.path.join(datapath, "Bordeaux", "Patients") 
+    os.makedirs(sitedatapath, exist_ok=True)
+
+    # Read fat-water swap record to avoid repeated reading at the end
+    record = os.path.join(os.getcwd(), 'src', 'data', 'fat_water_swap_record.csv')
+    with open(record, 'r') as file:
+        reader = csv.reader(file)
+        record = [row for row in reader]
+
+    # Loop over all patients
+    patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
+    for patient in tqdm(patients, desc='Building clean database'):
+
+        # Get a standardized ID from the folder name
+        pat_id = bordeaux_ibeat_patient_id(os.path.basename(patient))
+
+        # Corrupted data
+        if pat_id in EXCLUDE:
+            continue
+
+        # If the dataset already exists, continue to the next
+        subdirs = [
+            d for d in os.listdir(sitedatapath)
+            if os.path.isdir(os.path.join(sitedatapath, d))]
+        if f'Patient__{pat_id}' in subdirs:
+            continue
+
+        # Find all zip series in the experiment and sort by series number
+        all_zip_series = [f for f in os.listdir(patient) if os.path.isfile(os.path.join(patient, f))]
+        all_zip_series = sorted(all_zip_series, key=lambda x: int(x[7:-4]))
+
+        # Extract all series of the patient
+        with tempfile.TemporaryDirectory() as temp_folder:
+
+            pat_series = []
+            tmp_series_folder = {} # keep a list of folders for each series
+    
+            for zip_series in all_zip_series:
+
+                # Get the name of the zip file without extension.
+                zip_name = zip_series[:-4]
+
+                # Extract to a temporary folder and flatten it
+                try:
+                    extract_to = os.path.join(temp_folder, zip_name)
+                    with zipfile.ZipFile(os.path.join(patient, zip_series), 'r') as zip_ref:
+                        zip_ref.extractall(extract_to)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
+                    continue
+                flatten_folder(extract_to)
+
+                # Add new series to the list 
+                try:
+                    bordeaux_add_series_desc(extract_to, pat_series)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
+                    continue
+
+                # Save in dictionary
+                tmp_series_folder[pat_series[-1]] = extract_to
+
+
+            # Write the series to the database in the proper order
+            for series in ['Dixon', 'Dixon_post_contrast']:
+                for counter in [1,2,3]: # never more than 3 repetitions
+                    for image_type in ['out_phase', 'in_phase', 'fat', 'water']:
+                        series_desc = f'{series}_{counter}_{image_type}'
+                        if series_desc in tmp_series_folder:
+                            extract_to = tmp_series_folder[series_desc]
+                            # Copy to the database using the harmonized names
+                            dixon = db.series(extract_to)[0]
+                            dixon_clean = [sitedatapath, pat_id, visit, series_desc]
+                            # Perform fat-water swap if needed
+                            # dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
+                            try:
+                                dixon_vol = db.volume(dixon)
+                            except Exception as e:
+                                logging.error(f"Patient {pat_id} - {series_desc}: {e}")
+                            else:
+                                db.write_volume(dixon_vol, dixon_clean, ref=dixon)
+
+
 
 def all():
     # leeds()
@@ -760,10 +882,11 @@ def all():
 
 if __name__=='__main__':
     
-    sheffield()
+    #sheffield()
     # leeds()
     # bari()
     # turku_ge()
+    bordeaux_patients('Baseline')
     
     
     
