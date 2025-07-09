@@ -880,12 +880,12 @@ def all():
 
 if __name__=='__main__':
     
-    #sheffield()
+    sheffield()
     # leeds()
     # bari()
     # turku_ge()
     #bordeaux_patients('Baseline')
-    bordeaux_patients('Followup')
+    #bordeaux_patients('Followup')
     
     
     

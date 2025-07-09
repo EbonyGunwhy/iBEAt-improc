@@ -26,15 +26,17 @@ logging.basicConfig(
 )
 
 
-
-def site_fatwater_swap(sitedatapath, file):
+def check_fatwater_swap(site):
+    sitedatapath = os.path.join(datapath, site, "Patients") 
+    sitepngpath = os.path.join(data_qc_path, f'{site}_fat_water_swap.png')
 
     # Skip if the site has no data yet.
     if not os.path.exists(sitedatapath):
         return
 
     # Skip if the file already exists.
-    if os.path.exists(file):
+    if os.path.exists(sitepngpath):
+        print(f'Skipping: file {sitepngpath} already exists..')
         return
 
     # Get out-phase series
@@ -94,14 +96,10 @@ def site_fatwater_swap(sitedatapath, file):
             i+=1 
 
     fig.suptitle('FatMaps', fontsize=14)
-    fig.savefig(file)
+    fig.savefig(sitepngpath)
     plt.close()
 
-def fatwater_swap():
-    for site in ['Leeds', 'Sheffield', 'Bari', 'Turku']:
-        sitedatapath = os.path.join(datapath, site, "Patients") 
-        sitepngpath = os.path.join(data_qc_path, f'{site}_fat_water_swap.png')
-        site_fatwater_swap(sitedatapath, sitepngpath)
+
 
 def fatwater_swap_record_template():
     """
@@ -179,12 +177,10 @@ def count_dixons():
 
 
 def all():
-    fatwater_swap()
+    check_fatwater_swap('Sheffield')
 
 
 if __name__=='__main__':
-    fatwater_swap_record_template()
-    fatwater_swap()
-    count_dixons()
-
-    # TODO export more detailed report of dixon data before running the segmentation
+    #fatwater_swap_record_template()
+    check_fatwater_swap('Sheffield')
+    #count_dixons()

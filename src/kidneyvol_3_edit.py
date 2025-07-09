@@ -9,26 +9,10 @@ import dbdicom as db
 from utils import data
 
 
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#!!!!!!!!!!!!!!!!!!! DANGER ZONE !!!!!!!!!!!!!!!!!!!!!!
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-SITE = 'Bari'
-OUTPUT_PATH = os.path.join(os.getcwd(), 'build')
-# OUTPUT_PATH = 'G:\Shared drives\iBEAt-build'
-
-
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#!!!!!!!!!!!!!!!!!!!!! END !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-
-
-INPUT_PATH = 'G:\Shared drives\iBEAt-build'
-datapath = os.path.join(INPUT_PATH, 'dixon_2_data')
-maskpath = os.path.join(INPUT_PATH, 'kidneyvol_1_segment')
-editpath = os.path.join(OUTPUT_PATH, 'kidneyvol_3_edit')
+PATH = os.path.join(os.getcwd(), 'build')
+datapath = os.path.join(PATH, 'dixon_2_data')
+maskpath = os.path.join(PATH, 'kidneyvol_1_segment')
+editpath = os.path.join(PATH, 'kidneyvol_3_edit')
 os.makedirs(editpath, exist_ok=True)
 
 
@@ -38,12 +22,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
-
-# # Cases that need editing
-# EDIT = [
-#     '1128_002',
-#     '1128_003',
-# ]
 
 
 def edit_mask_with_napari(image_3d: np.ndarray, mask_3d: np.ndarray) -> np.ndarray:
@@ -101,10 +79,6 @@ def edit_auto_masks(site):
         # Patient and output study
         patient = mask_series[1]
         study = mask_series[2][0]
-        
-        # # Skip those that don't need editing
-        # if patient not in EDIT:
-        #     continue
 
         # Skip if the edited masks already exist
         edited_mask_study = [siteeditpath, patient, (study, 0)]
@@ -138,4 +112,4 @@ def all():
 
 
 if __name__=='__main__':
-    edit_auto_masks(SITE)
+    edit_auto_masks('Bari')

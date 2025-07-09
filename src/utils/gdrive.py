@@ -2,6 +2,7 @@ import os
 import shutil
 import time
 
+
 from tqdm import tqdm
 
 
@@ -45,7 +46,12 @@ def copy(SOURCE_DIR, TARGET_DIR, BATCH_SIZE=500, DELAY_BETWEEN_BATCHES = 10):
 
 
 
+
+
+
+
+
 if __name__=='__main__':
-    source_dir = os.path.join("C:\\Users", "md1spsx", "Documents", 'GitHub', 'iBEAt-improc', 'build', 'dixon_2_data', 'Sheffield')
-    target_dir = os.path.join("G:\\Shared drives", "iBEAt Build", "dixon_2_data", 'Sheffield')
+    source_dir = os.path.join("C:\\Users", "md1spsx", "Documents", 'GitHub', 'iBEAt-improc', 'build', 'kidneyvol_1_segment', 'Sheffield')
+    target_dir = os.path.join("G:\\Shared drives", "iBEAt Build", "kidneyvol_1_segment", 'Sheffield')
     copy(source_dir, target_dir)

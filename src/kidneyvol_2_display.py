@@ -108,5 +108,5 @@ def all():
 
 if __name__=='__main__':
     # mosaic('Bari')
-    mosaic('Leeds')
-    # mosaic('Sheffield')
+    # mosaic('Leeds')
+    mosaic('Sheffield')
