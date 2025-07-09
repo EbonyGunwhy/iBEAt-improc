@@ -101,7 +101,7 @@ def check_fatwater_swap(site):
 
 
 
-def fatwater_swap_record_template():
+def fatwater_swap_record_template(site):
     """
     Template json file for manual recording of fat water swaps.
 
@@ -121,16 +121,15 @@ def fatwater_swap_record_template():
     swap_record = [
         ['Site', 'Patient', 'Study', 'Series', 'Swapped']
     ]
-    for site in ['Leeds', 'Sheffield', 'Bari', 'Turku']:
-        sitedatapath = os.path.join(datapath, site, "Patients") 
-        if os.path.exists(sitedatapath):
-            for series in tqdm(db.series(sitedatapath), desc=f"Building record for {site}"):
-                patient_id = series[1]
-                study_desc = series[2][0]
-                series_desc = series[3][0]
-                if series_desc[-3:]=='fat':
-                    row = [site, patient_id, study_desc, series_desc[:-4], 0]
-                    swap_record.append(row)
+    sitedatapath = os.path.join(datapath, site, "Patients") 
+    if os.path.exists(sitedatapath):
+        for series in tqdm(db.series(sitedatapath), desc=f"Building record for {site}"):
+            patient_id = series[1]
+            study_desc = series[2][0]
+            series_desc = series[3][0]
+            if series_desc[-3:]=='fat':
+                row = [site, patient_id, study_desc, series_desc[:-4], 0]
+                swap_record.append(row)
 
     # Write to CSV file
     with open(csv_file, 'w', newline='') as file:
@@ -181,6 +180,7 @@ def all():
 
 
 if __name__=='__main__':
-    #fatwater_swap_record_template()
-    check_fatwater_swap('Sheffield')
+    #check_fatwater_swap('Bordeaux')
+    fatwater_swap_record_template('Bordeaux')
+    
     #count_dixons()

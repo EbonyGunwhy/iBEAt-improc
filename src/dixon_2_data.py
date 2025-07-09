@@ -714,7 +714,7 @@ def turku_ge():
             continue
 
         # If the study
-        dixon_clean_study = [sitedatapath, pat_id, time_point]
+        dixon_clean_study = [sitedatapath, pat_id, (time_point, 0)]
         if dixon_clean_study in db.studies(sitedatapath):
             continue
 
@@ -774,7 +774,7 @@ def turku_ge():
 
                             dixon_clean = dixon_clean_study + [series_desc]
                             # Perform fat-water swap if needed
-                            #dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
+                            dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
                             # Write to database.
                             # db.copy(dixon, dixon_clean)
                             try:
@@ -810,7 +810,7 @@ def bordeaux_patients(visit='Baseline'):
             continue
 
         # If the study already exists, continue to the next
-        dixon_clean_study = [sitedatapath, pat_id, visit]
+        dixon_clean_study = [sitedatapath, pat_id, (visit, 0)]
         if dixon_clean_study in db.studies([sitedatapath, pat_id]):
             continue
 
@@ -861,7 +861,7 @@ def bordeaux_patients(visit='Baseline'):
                             dixon = db.series(extract_to)[0]
                             dixon_clean = dixon_clean_study + [series_desc]
                             # Perform fat-water swap if needed
-                            # dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
+                            dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
                             try:
                                 dixon_vol = db.volume(dixon)
                             except Exception as e:
@@ -880,11 +880,11 @@ def all():
 
 if __name__=='__main__':
     
-    sheffield()
+    #sheffield()
     # leeds()
     # bari()
     # turku_ge()
-    #bordeaux_patients('Baseline')
+    bordeaux_patients('Baseline')
     #bordeaux_patients('Followup')
     
     
