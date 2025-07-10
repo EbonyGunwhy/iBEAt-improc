@@ -90,7 +90,7 @@ def turku_ge_patients():
         password=password,
         output_dir=path,
         project_id="BEAt-DKD-WP4-Turku",
-        subject_label="Turku_Patients",
+        subject_label="Turku_Patients_GE",
         attr="series_description",
         value=[
             "WATER: T1_abdomen_dixon_cor_bh", 
@@ -104,6 +104,21 @@ def turku_ge_patients():
         ],
     )
 
+def turku_philips_patients():
+    username, password = xnat.credentials()
+    xnat.download_scans(
+        xnat_url="https://qib.shef.ac.uk",
+        username=username,
+        password=password,
+        output_dir=path,
+        project_id="BEAt-DKD-WP4-Turku",
+        subject_label="Turku_Patients_Philips",
+        attr="series_description",
+        value=[
+            'T1W-abdomen-Dixon-coronal-BH', 
+            'T1W-abdomen-Dixon-post-coronal-BH',
+        ],
+    )
 
 def bordeaux_patients_baseline():
     username, password = xnat.credentials()
@@ -208,8 +223,8 @@ if __name__=='__main__':
    
     # leeds_patients()
     # bari_patients()
-    sheffield_patients()
-    # turku_ge_patients()
+    #sheffield_patients()
+    turku_philips_patients()
 
     # bordeaux_patients_baseline()
     # bordeaux_patients_followup()
