@@ -459,9 +459,17 @@ def bari_030(dixon_split):
     # Need these values to build the affine
     aff = ['ImageOrientationPatient', 'ImagePositionPatient', 'PixelSpacing', 'SpacingBetweenSlices']
 
+    # Outphase is the one with the smallest TE
+    if dixon_split[0][0] < dixon_split[1][0]:
+        out_phase = 0
+        in_phase = 1
+    else:
+        out_phase = 1
+        in_phase = 0
+
     # Interpolate missing slices - out-phase
     loc0 = 11.6357442880728 # last slice before the gap
-    series = dixon_split[1.274]
+    series = dixon_split[out_phase][1]
     arr, crd, val = db.pixel_data(series, dims='SliceLocation', coords=True, attr=aff)
     i0 = np.where(crd[0,:] == loc0)[0][0]
     # Interpolate missing slices
@@ -482,7 +490,7 @@ def bari_030(dixon_split):
 
     # Interpolate missing slices - in_phase
     loc0 = 13.1357467355428 # last slice before the gap
-    series = dixon_split[2.444]
+    series = dixon_split[in_phase][1]
     arr, crd = db.pixel_data(series, dims='SliceLocation', coords=True)
     i0 = np.where(crd[0,:] == loc0)[0][0]
     # Interpolate missing slices
@@ -570,8 +578,7 @@ def bari():
                     continue
                 
                 # Check the echo times
-                TE = list(dixon_split.keys())
-                if len(TE) == 1:
+                if len(dixon_split) == 1:
                     logging.error(
                         f"Bari patient {pat_id}, series "
                         f"{os.path.basename(extract_to)}: "
@@ -583,15 +590,23 @@ def bari():
                     bari_030(dixon_split)
                     continue
 
+                # Out_phase is the one with the smallest TE
+                if dixon_split[0][0] < dixon_split[1][0]:
+                    out_phase = 0
+                    in_phase = 1
+                else:
+                    out_phase = 1
+                    in_phase = 0
+
                 # Write to the database using read/write volume to ensure proper slice order.
                 try:
-                    out_phase_vol = db.volume(dixon_split[TE[0]])
-                    in_phase_vol = db.volume(dixon_split[TE[1]])
+                    out_phase_vol = db.volume(dixon_split[out_phase][1])
+                    in_phase_vol = db.volume(dixon_split[in_phase][1])
                 except Exception as e:
                     logging.error(f"Patient {pat_id} - {pat_series[-1]}: {e}")
                 else:
-                    db.write_volume(out_phase_vol, out_phase_clean, ref=dixon_split[TE[0]])
-                    db.write_volume(in_phase_vol, in_phase_clean, ref=dixon_split[TE[1]])
+                    db.write_volume(out_phase_vol, out_phase_clean, ref=dixon_split[out_phase][1])
+                    db.write_volume(in_phase_vol, in_phase_clean, ref=dixon_split[in_phase][1])
 
                 # # Predict fat and water
                 # # ---------------------
@@ -810,6 +825,7 @@ def turku_ge():
                                 logging.error(f"Patient {pat_id} - {series_desc}: {e}")
                             else:
                                 db.write_volume(dixon_vol, dixon_clean, ref=dixon)
+                                
 def turku_philips():
 
     # Define input and output folders
@@ -822,16 +838,15 @@ def turku_philips():
     for pat in tqdm(patients, desc='Building clean database'):
 
         # Get a standardized ID from the folder name
-        pat_id = turku_philips_ibeat_patient_id(os.path.basename(pat))
+        pat_id, time_point = turku_philips_ibeat_patient_id(os.path.basename(pat))
 
         # Corrupted data
         if pat_id in EXCLUDE:
             continue
 
-        # Find all zip series, remove those with 'OT' in the name and sort by series number
+        # Find all zip series and sort by series number
         all_zip_series = [f for f in os.listdir(pat) if os.path.isfile(os.path.join(pat, f))]
         all_zip_series = sorted(all_zip_series, key=lambda x: int(x[7:-4]))
-
 
         # loop over all series
         pat_series = []
@@ -849,13 +864,15 @@ def turku_philips():
 
             # Construct output series
             study = [sitedatapath, pat_id, ('Baseline', 0)]
-            out_phase_clean = study + [(pat_series[-1] + 'out_phase', 0)]
-            in_phase_clean = study + [(pat_series[-1] + 'in_phase', 0)]
-            fat_clean = study + [(pat_series[-1] + 'fat', 0)]
-            water_clean = study + [(pat_series[-1] + 'water', 0)]
+            dixon_clean = {
+                'OP': study + [(pat_series[-1] + 'out_phase', 0)],
+                'IP': study + [(pat_series[-1] + 'in_phase', 0)],
+                'W': study + [(pat_series[-1] + 'water', 0)],
+                'F': study + [(pat_series[-1] + 'fat', 0)],
+            }
 
             # If the series already exists, continue to the next
-            if out_phase_clean in db.series(study):
+            if dixon_clean['OP'] in db.series(study):
                 continue
 
             with tempfile.TemporaryDirectory() as temp_folder:
@@ -873,23 +890,8 @@ def turku_philips():
 
                 # Split series into in- and opposed phase
                 dixon = db.series(extract_to)[0]
-                # dixon_files = db.files(dixon)
-                
-                # op_phase = [dixon[0], dixon[1], 'Baseline', 'Dixon_out_phase']
-                # in_phase = [dixon[0], dixon[1], 'Baseline', 'Dixon_in_phase']
-                # fat = [dixon[0], dixon[1], 'Baseline', 'Dixon_fat']
-                # water = [dixon[0], dixon[1], 'Baseline', 'Dixon_water']
-                
-                # for file in dixon_files:
-                #     ds = pydicom.dcmread(file)
-                #     imagetype = ds.ImageType
-
-                #     if imagetype == 'OP':
-                #        op_phase
-
                 try:
-                    
-                    dixon_split = db.split_series(dixon, 'ImageType')
+                    dixon_split = db.split_series(dixon, 'ImageType', key=lambda x:x[2])
                 except Exception as e:
                     logging.error(
                         f"Error splitting Turku series {pat_id} "
@@ -898,29 +900,21 @@ def turku_philips():
                         f"--> Details of the error: {e}")
                     continue
                 
-                # Check the echo times
-                imagetype = list(dixon_split.keys())
-                if len(imagetype) == 1:
+                # Check the image types
+                if len(dixon_split) == 1:
                     logging.error(
                         f"Turku patient {pat_id}, series "
                         f"{os.path.basename(extract_to)}: "
                         f"Only one image type found. Excluded from database.")
                     continue    
 
-
                 # Write to the database using read/write volume to ensure proper slice order.
-                try:
-                    fat_vol = db.volume(dixon_split[imagetype[0]])
-                    in_phase_vol = db.volume(dixon_split[imagetype[1]])
-                    out_phase_vol = db.volume(dixon_split[imagetype[2]])
-                    water_vol = db.volume(dixon_split[imagetype[3]])
-                except Exception as e:
-                    logging.error(f"Patient {pat_id} - {pat_series[-1]}: {e}")
-                else:
-                    db.write_volume(fat_vol, fat_clean, ref=dixon_split[imagetype[0]])
-                    db.write_volume(out_phase_vol, out_phase_clean, ref=dixon_split[imagetype[1]])
-                    db.write_volume(in_phase_vol, in_phase_clean, ref=dixon_split[imagetype[2]])
-                    db.write_volume(water_vol, water_clean, ref=dixon_split[imagetype[3]])
+                for split_series in dixon_split:
+                    try:
+                        vol = db.volume(split_series[1])
+                    except Exception as e:
+                        logging.error(f"Patient {pat_id} - {pat_series[-1]}: {e}")
+                    db.write_volume(vol, dixon_clean[split_series[0]], ref=split_series[1])
                     
 
 def bordeaux_patients(visit='Baseline'):
