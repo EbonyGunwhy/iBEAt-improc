@@ -137,7 +137,7 @@ def fatwater_swap_record_template(site):
         writer.writerows(swap_record)
 
 
-def count_dixons():
+def count_dixons(site):
 
     # If the file already exists, don't run it again
     csv_file = os.path.join(data_qc_path, 'dixon_data.csv')
@@ -149,25 +149,24 @@ def count_dixons():
     data = [
         ['Site', 'Patient', 'Study', 'Dixon', 'Dixon_post_contrast', 'Use']
     ]
-    for site in ['Leeds', 'Sheffield', 'Bari', 'Turku']:
-        sitedatapath = os.path.join(datapath, site, "Patients") 
-        for study in tqdm(db.studies(sitedatapath), desc=f"Counting dixons for {site}"):
-            patient_id = study[1]
-            study_desc = study[2][0]
-            series = db.series(study)
-            series_desc = [s[3][0] for s in series] #removed s[3][0] to make it work
-            row = [site, patient_id, study_desc, 0, 0, '']
-            for desc in ['Dixon', 'Dixon_post_contrast']:
-                cnt=0
-                while f'{desc}_{cnt+1}_out_phase' in series_desc:
-                    cnt+=1
-                if desc=='Dixon':
-                    row[3] = f'{cnt}'
-                else:
-                    row[4] = f'{cnt}'
-            # Use the last post-contrast if available, else the last precontrast.
-            row[5] = f'Dixon_post_contrast_{row[4]}' if cnt>0 else f'Dixon_{row[3]}'
-            data.append(row)
+    sitedatapath = os.path.join(datapath, site, "Patients") 
+    for study in tqdm(db.studies(sitedatapath), desc=f"Counting dixons for {site}"):
+        patient_id = study[1]
+        study_desc = study[2][0]
+        series = db.series(study)
+        series_desc = [s[3][0] for s in series] #removed s[3][0] to make it work
+        row = [site, patient_id, study_desc, 0, 0, '']
+        for desc in ['Dixon', 'Dixon_post_contrast']:
+            cnt=0
+            while f'{desc}_{cnt+1}_out_phase' in series_desc:
+                cnt+=1
+            if desc=='Dixon':
+                row[3] = f'{cnt}'
+            else:
+                row[4] = f'{cnt}'
+        # Use the last post-contrast if available, else the last precontrast.
+        row[5] = f'Dixon_post_contrast_{row[4]}' if cnt>0 else f'Dixon_{row[3]}'
+        data.append(row)
 
     # Save as csv
     with open(csv_file, 'w', newline='') as file:
@@ -181,6 +180,5 @@ def all():
 
 if __name__=='__main__':
     #check_fatwater_swap('Bordeaux')
-    fatwater_swap_record_template('Bordeaux')
-    
-    #count_dixons()
+    #fatwater_swap_record_template('Bordeaux')
+    count_dixons('Bordeaux')

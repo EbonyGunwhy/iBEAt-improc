@@ -80,7 +80,7 @@ def mosaic(site):
         series_op = [sitedatapath, patient_id, study, f'{sequence}_out_phase']
 
         # Skip if file exists
-        png_file = os.path.join(display_kidneys, f'{patient_id}_{sequence}_kidneys.png')
+        png_file = os.path.join(display_kidneys, f'{patient_id}_{study}_{sequence}.png')
         if os.path.exists(png_file):
              continue
 
@@ -105,8 +105,8 @@ def all():
     mosaic('Bari')
     mosaic('Leeds')
     mosaic('Sheffield')
+    mosaic('Bordeaux')
+
 
 if __name__=='__main__':
-    # mosaic('Bari')
-    # mosaic('Leeds')
-    mosaic('Sheffield')
+    mosaic('Bordeaux')
