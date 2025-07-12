@@ -175,10 +175,12 @@ def exeter_patients_baseline():
         subject_label="Exeter_Patients_Baseline",
         attr="series_description",
         value=[
+            "T1w_abdomen_dixon_cor_bh", 
             "T1w_abdomen_dixon_cor_bh_opp", 
             "T1w_abdomen_dixon_cor_bh_in",
             "T1w_abdomen_dixon_cor_bh_F",
             "T1w_abdomen_dixon_cor_bh_W",
+            "T1w_abdomen_post_contrast_dixon_cor_bh",
             "T1w_abdomen_post_contrast_dixon_cor_bh_opp",
             "T1w_abdomen_post_contrast_dixon_cor_bh_in",
             "T1w_abdomen_post_contrast_dixon_cor_bh_F",
@@ -224,11 +226,11 @@ if __name__=='__main__':
     # leeds_patients()
     # bari_patients()
     #sheffield_patients()
-    turku_philips_patients()
+    # turku_philips_patients()
 
     # bordeaux_patients_baseline()
     # bordeaux_patients_followup()
-    # exeter_patients_baseline()
+    exeter_patients_baseline()
     # exeter_patients_followup()
 
     # leeds_volunteers()

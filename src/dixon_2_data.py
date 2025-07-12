@@ -19,8 +19,6 @@ import vreg
 EXCLUDE = [
     "7128_048", # Sheffield: localizer only - check transfer
     "7128_068", # Sheffield: data only until T2 haste
-    # Download again:
-    # Sheffield 7128-141: seems complete but data are in a different format - one file per series - reuploaded
 ]
 
 downloadpath = os.path.join(os.getcwd(), 'build', 'dixon_1_download')
@@ -58,6 +56,13 @@ def flatten_folder(root_folder):
                 os.rmdir(dirpath)
             except OSError:
                 print(f"Could not remove {dirpath} — not empty or in use.")
+
+
+def exeter_ibeat_patient_id(folder):
+    if folder=='3128-542':
+        return '3128_542'
+    # iBE-2128-001_baseline
+    return folder[4:12].replace('-', '_')
 
 
 def bordeaux_ibeat_patient_id(folder):
@@ -205,6 +210,34 @@ def bordeaux_add_series_desc(folder, all_series:list):
     all_series.append(new_series_desc)
 
 
+def exeter_add_series_desc(folder, all_series:list):
+
+    # Read series description from file
+    file = os.listdir(folder)[0]
+    ds = pydicom.dcmread(os.path.join(folder, file))
+    original_series_desc = ds['SeriesDescription'].value
+    
+    new_series_desc = {
+        "T1w_abdomen_dixon_cor_bh_opp": 'Dixon_1_out_phase', 
+        "T1w_abdomen_dixon_cor_bh_in": 'Dixon_1_in_phase',
+        "T1w_abdomen_dixon_cor_bh_F": 'Dixon_1_fat',
+        "T1w_abdomen_dixon_cor_bh_W": 'Dixon_1_water',
+        "T1w_abdomen_post_contrast_dixon_cor_bh_opp": 'Dixon_post_contrast_1_out_phase',
+        "T1w_abdomen_post_contrast_dixon_cor_bh_in": 'Dixon_post_contrast_1_in_phase',
+        "T1w_abdomen_post_contrast_dixon_cor_bh_F": 'Dixon_post_contrast_1_fat',
+        "T1w_abdomen_post_contrast_dixon_cor_bh_W": 'Dixon_post_contrast_1_water',
+    }
+    series_desc = new_series_desc[original_series_desc]
+
+    # Increment counter if needed
+    new_series_desc = series_desc
+    counter = 2
+    while new_series_desc in all_series:
+        new_series_desc = series_desc.replace('_1_', f'_{counter}_')
+        counter += 1
+    all_series.append(new_series_desc)
+
+
 def sheffield_add_series_desc(folder, all_series:list):
 
     # Read series description from file
@@ -325,7 +358,7 @@ def turku_philips_add_series_name(name, all_series:list):
 
 def swap_fat_water(record, dixon, series, image_type):
     for row in record:
-        if row[1:4] == [dixon[1], dixon[2], series]:
+        if row[1:4] == [dixon[1], dixon[2][0], series]:
             if row[4]=='1':
                 # Swap fat and water
                 if image_type=='fat':
@@ -719,7 +752,7 @@ def sheffield():
                             extract_to = tmp_series_folder[series_desc]
                             # Copy to the database using the harmonized names
                             dixon = db.series(extract_to)[0]
-                            dixon_clean = [sitedatapath, pat_id, 'Baseline', series_desc]
+                            dixon_clean = [sitedatapath, pat_id, ('Baseline', 0), series_desc]
                             # Perform fat-water swap if needed
                             dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
                             # Write to database.
@@ -1001,6 +1034,210 @@ def bordeaux_patients(visit='Baseline'):
                             else:
                                 db.write_volume(dixon_vol, dixon_clean, ref=dixon)
 
+def exeter_interpolate_vol(series):
+
+    # Need these values to build the affine
+    aff = ['ImageOrientationPatient', 'ImagePositionPatient', 'PixelSpacing', 'SliceThickness']
+    # Interpolate missing slices - out-phase
+    arr, crd, val = db.pixel_data(series, dims='SliceLocation', coords=True, attr=aff)
+    i0 = np.where(crd[0,1:]-crd[0,:-1]==3)[0][0]
+    # Interpolate missing slices
+    pixel_data = np.zeros(arr.shape[:2] + (arr.shape[2]+1, ))
+    pixel_data[:,:,:i0+1] = arr[:,:,:i0+1]
+    pixel_data[:,:,i0+1] = (1/2) * arr[:,:,i0] + (1/2) * arr[:,:,i0+1]
+    pixel_data[:,:,i0+2:] = arr[:,:,i0+1:]
+    # Create volume 
+    affine = db.affine_matrix(
+        val['ImageOrientationPatient'][0], 
+        val['ImagePositionPatient'][0], 
+        val['PixelSpacing'][0], 
+        val['SliceThickness'][0])
+    return vreg.volume(pixel_data, affine)
+
+
+def exeter_111():
+
+    # In- and opposed phase combined in the same series
+    # No fat or water maps computed
+
+    visit = 'Baseline'
+
+    # Clean Leeds patient data
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Exeter", f"Exeter_Patients_{visit}")
+    sitedatapath = os.path.join(datapath, "Exeter", "Patients") 
+    os.makedirs(sitedatapath, exist_ok=True)
+
+    patient = os.path.join(sitedownloadpath, 'iBE-3128-111')
+    pat_id = '3128_111'
+
+    # If the study already exists, continue to the next
+    dixon_clean_study = [sitedatapath, pat_id, (visit, 0)]
+    if dixon_clean_study in db.studies([sitedatapath, pat_id]):
+        return
+    
+    # Find all zip series in the experiment and sort by series number
+    all_zip_series = [f for f in os.listdir(patient) if os.path.isfile(os.path.join(patient, f))]
+    all_zip_series = sorted(all_zip_series, key=lambda x: int(x[7:-4]))
+
+    # Extract all series of the patient
+    with tempfile.TemporaryDirectory() as temp_folder:
+
+        for zip_series in all_zip_series:
+
+            # Get the name of the zip file without extension.
+            zip_name = zip_series[:-4]
+            
+            # Extract to a temporary folder and flatten it
+            try:
+                extract_to = os.path.join(temp_folder, zip_name)
+                with zipfile.ZipFile(os.path.join(patient, zip_series), 'r') as zip_ref:
+                    zip_ref.extractall(extract_to)
+            except Exception as e:
+                logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
+                continue
+            flatten_folder(extract_to)
+
+            # Read the series and split by TE
+            dixon = db.series(extract_to)[0]
+            dixon_split = db.split_series(dixon, 'EchoTime')
+
+            # Out_phase is the one with the smallest TE
+            if dixon_split[0][0] < dixon_split[1][0]:
+                out_phase = 0
+                in_phase = 1
+            else:
+                out_phase = 1
+                in_phase = 0
+
+            sequence='Dixon_1_' if zip_name=='series_04' else 'Dixon_post_contrast_1_'
+            study = [sitedatapath, pat_id, ('Baseline', 0)]
+            out_phase_clean = study + [(sequence + 'out_phase', 0)]
+            in_phase_clean = study + [(sequence + 'in_phase', 0)]
+
+            # Write to the database using read/write volume to ensure proper slice order.
+            try:
+                out_phase_vol = db.volume(dixon_split[out_phase][1])
+                in_phase_vol = db.volume(dixon_split[in_phase][1])
+            except Exception as e:
+                logging.error(f"Patient {pat_id} - {sequence}: {e}")
+            else:
+                db.write_volume(out_phase_vol, out_phase_clean, ref=dixon_split[out_phase][1])
+                db.write_volume(in_phase_vol, in_phase_clean, ref=dixon_split[in_phase][1])
+
+
+
+def exeter_patients(visit='Baseline'):
+
+    # Clean Leeds patient data
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Exeter", f"Exeter_Patients_{visit}")
+    sitedatapath = os.path.join(datapath, "Exeter", "Patients") 
+    os.makedirs(sitedatapath, exist_ok=True)
+
+    # Read fat-water swap record to avoid repeated reading at the end
+    record = os.path.join(os.getcwd(), 'src', 'data', 'fat_water_swap_record.csv')
+    with open(record, 'r') as file:
+        reader = csv.reader(file)
+        record = [row for row in reader]
+
+    # Loop over all patients
+    patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
+    for patient in tqdm(patients, desc='Building clean database'):
+
+        # Get a standardized ID from the folder name
+        pat_id = exeter_ibeat_patient_id(os.path.basename(patient))
+
+        # Corrupted data
+        if pat_id in EXCLUDE:
+            continue
+
+        if (visit, pat_id) == ('Baseline', '3128_111'):
+            exeter_111()
+            continue
+
+        # split over two folders - needs checking at series level (see below)
+        split_on_xnat = [('Baseline', '3128_039'), ('Baseline', '3128_107'), ('Followup', '3128_012'), ('Followup', '3128_031'), ('Followup', '3128_050')]
+        # If the study already exists, continue to the next
+        dixon_clean_study = [sitedatapath, pat_id, (visit, 0)]
+        if (visit, pat_id) not in  split_on_xnat: 
+            if dixon_clean_study in db.studies([sitedatapath, pat_id]):
+                continue
+
+        # Find all zip series in the experiment and sort by series number
+        all_zip_series = [f for f in os.listdir(patient) if os.path.isfile(os.path.join(patient, f))]
+        all_zip_series = sorted(all_zip_series, key=lambda x: int(x[7:-4]))
+
+        # Extract all series of the patient
+        with tempfile.TemporaryDirectory() as temp_folder:
+
+            pat_series = []
+            tmp_series_folder = {} # keep a list of folders for each series
+    
+            for zip_series in all_zip_series:
+
+                # Get the name of the zip file without extension.
+                zip_name = zip_series[:-4]
+
+                # Extract to a temporary folder and flatten it
+                try:
+                    extract_to = os.path.join(temp_folder, zip_name)
+                    with zipfile.ZipFile(os.path.join(patient, zip_series), 'r') as zip_ref:
+                        zip_ref.extractall(extract_to)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
+                    continue
+                flatten_folder(extract_to)
+
+                # Add new series to the list 
+                try:
+                    exeter_add_series_desc(extract_to, pat_series)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
+                    continue
+
+                # Save in dictionary
+                tmp_series_folder[pat_series[-1]] = extract_to
+
+
+            # Write the series to the database in the proper order
+            for series in ['Dixon', 'Dixon_post_contrast']:
+                for counter in [1,2,3]: # never more than 3 repetitions
+                    for image_type in ['out_phase', 'in_phase', 'fat', 'water']:
+                        series_desc = f'{series}_{counter}_{image_type}'
+                        if series_desc in tmp_series_folder:
+                            extract_to = tmp_series_folder[series_desc]
+                            # Copy to the database using the harmonized names
+                            dixon = db.series(extract_to)[0]
+                            dixon_clean = dixon_clean_study + [(series_desc, 0)]
+                            # Exception for some cases - needs checking at series level
+                            if (visit, pat_id) in split_on_xnat: 
+                                if dixon_clean in db.series(dixon_clean_study):
+                                    continue
+                            # Perform fat-water swap if needed
+                            dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
+                            try:
+                                # Special case with one missing slice - interpolate the gap
+                                if (visit=='Baseline') and (pat_id == '3128_044') and (series == 'Dixon_post_contrast') and (image_type=='in_phase'):
+                                    dixon_vol = exeter_interpolate_vol(dixon)
+                                elif (visit=='Baseline') and (pat_id == '3128_082') and (series == 'Dixon_post_contrast') and (image_type=='fat'):
+                                    dixon_vol = exeter_interpolate_vol(dixon)
+                                elif (visit=='Baseline') and (pat_id == '3128_120') and (series == 'Dixon_post_contrast') and (image_type=='out_phase'):
+                                    dixon_vol = exeter_interpolate_vol(dixon)
+                                else:
+                                    dixon_vol = db.volume(dixon)
+                            except Exception as e:
+                                logging.error(f"Patient {pat_id} - {series_desc}: {e}")
+                            else:
+                                # Reconstruct axial ones
+                                if (visit=='Baseline') and (pat_id == '3128_014') and (series == 'Dixon') and (counter==2):
+                                    dixon_vol = dixon_vol.reslice(orient='coronal', spacing=1.5)
+                                elif (visit=='Baseline') and (pat_id == '3128_086') and (series == 'Dixon_post_contrast') and (counter==1):
+                                    dixon_vol = dixon_vol.reslice(orient='coronal', spacing=1.5)
+                                elif (visit=='Baseline') and (pat_id == '3128_104') and (series == 'Dixon') and (counter==2):
+                                    dixon_vol = dixon_vol.reslice(orient='coronal', spacing=1.5)
+                                elif (visit=='Baseline') and (pat_id == '3128_104') and (series == 'Dixon_post_contrast') and (counter==1):
+                                    dixon_vol = dixon_vol.reslice(orient='coronal', spacing=1.5)
+                                db.write_volume(dixon_vol, dixon_clean, ref=dixon)
+
 
 
 def all():
@@ -1016,14 +1253,8 @@ if __name__=='__main__':
     # sheffield()
     # leeds()
     # bari()
-    turku_philips()
-    #bordeaux_patients('Baseline')
-    #bordeaux_patients('Followup')
-    
-    
-    
-
-    
-
-
-    
+    # turku_philips()
+    # bordeaux_patients('Baseline')
+    # bordeaux_patients('Followup')
+    # exeter_patients('Baseline')
+    exeter_patients('Followup')

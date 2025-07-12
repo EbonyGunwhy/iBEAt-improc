@@ -179,9 +179,6 @@ def all():
 
 
 if __name__=='__main__':
-    #check_fatwater_swap('Bordeaux')
-    #fatwater_swap_record_template('Bordeaux')
-    count_dixons('Bordeaux')
-    #fatwater_swap_record_template()
-    check_fatwater_swap('Turku')
-    count_dixons()
+    # fatwater_swap_record_template('Exeter')
+    # check_fatwater_swap('Exeter')
+    count_dixons('Exeter')

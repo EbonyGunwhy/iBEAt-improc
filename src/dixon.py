@@ -23,9 +23,7 @@ import kidneyvol_1_segment
 
 if __name__=='__main__':
 
-    dixon_1_download.leeds_patients()
-    dixon_2_data.leeds()
-    kidneyvol_1_segment.segment_site('Leeds')
-    dixon_1_download.sheffield_patients()
-    dixon_2_data.sheffield()
-    kidneyvol_1_segment.segment_site('Sheffield')
+    dixon_2_data.exeter_patients('Baseline')
+    dixon_2_data.exeter_patients('Followup')
+    dixon_3_check.check_fatwater_swap('Exeter')
+
