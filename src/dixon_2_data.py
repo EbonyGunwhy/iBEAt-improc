@@ -1208,12 +1208,12 @@ def exeter_patients(visit='Baseline'):
                             # Copy to the database using the harmonized names
                             dixon = db.series(extract_to)[0]
                             dixon_clean = dixon_clean_study + [(series_desc, 0)]
+                            # Perform fat-water swap if needed
+                            dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
                             # Exception for some cases - needs checking at series level
                             if (visit, pat_id) in split_on_xnat: 
                                 if dixon_clean in db.series(dixon_clean_study):
                                     continue
-                            # Perform fat-water swap if needed
-                            dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
                             try:
                                 # Special case with one missing slice - interpolate the gap
                                 if (visit=='Baseline') and (pat_id == '3128_044') and (series == 'Dixon_post_contrast') and (image_type=='in_phase'):

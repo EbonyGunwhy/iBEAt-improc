@@ -23,7 +23,8 @@ if __name__=='__main__':
     # archive_autosegmentation('Leeds')
     # archive_autosegmentation('Sheffield')
     # archive_autosegmentation('Bari')
-    archive_autosegmentation('Bordeaux')
+    # archive_autosegmentation('Bordeaux')
+    archive_autosegmentation('Exeter')
     # archive_edits('Bari')
     
 
