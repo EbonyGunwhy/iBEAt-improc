@@ -9,9 +9,11 @@ from utils import plot, data
 
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-maskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_3_edit')
+automaskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_1_segment')
+editmaskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_3_edit')
 displaypath = os.path.join(os.getcwd(), 'build', 'kidneyvol_4_display')
 os.makedirs(displaypath, exist_ok=True)
+
 
 # Set up logging
 logging.basicConfig(
@@ -21,11 +23,11 @@ logging.basicConfig(
 )
 
 
-def mosaic(sitedatapath, sitemaskpath, sitedisplaypath):
+def movie(sitedatapath, sitemaskpath, sitedisplaypath):
 
     # Build output folders
-    display_kidneys = os.path.join(displaypath, sitedisplaypath)
-    os.makedirs(display_kidneys, exist_ok=True)
+    movies_kidneys = os.path.join(displaypath, sitedisplaypath, 'Movies')
+    os.makedirs(movies_kidneys, exist_ok=True)
 
     record = data.dixon_record()
     class_map = {1: "kidney_left", 2: "kidney_right"}
@@ -40,13 +42,60 @@ def mosaic(sitedatapath, sitemaskpath, sitedisplaypath):
         series_op = [sitedatapath, patient_id, study, f'{sequence}_out_phase']
 
         # Skip if file exists
-        png_file = os.path.join(display_kidneys, f'{patient_id}_{sequence}_kidneys.png')
-        if os.path.exists(png_file):
-             continue
+        file = os.path.join(movies_kidneys, f'{patient_id}_{sequence}_kidneys.mp4')
+        if not os.path.exists(file):
+            continue
 
         # Get arrays
         op_arr = db.volume(series_op).values
         mask_arr = db.volume(mask).values
+        rois = {}
+        for idx, roi in class_map.items():
+            rois[roi] = (mask_arr==idx).astype(np.int16)
+
+        # Build movie (kidneys only)
+        try:
+            plot.movie_overlay(op_arr, rois, file)
+        except Exception as e:
+            logging.error(f"{patient_id} {sequence} error building movie: {e}")
+
+
+def mosaic(site):
+    sitedatapath = os.path.join(datapath, site, "Patients") 
+    siteautomaskpath = os.path.join(automaskpath, site, "Patients")
+    siteeditmaskpath = os.path.join(editmaskpath, site, "Patients")
+    sitedisplaypath = os.path.join(displaypath, site, "Patients")
+    os.makedirs(sitedisplaypath, exist_ok=True)
+
+    record = data.dixon_record()
+    class_map = {1: "kidney_left", 2: "kidney_right"}
+    all_editmasks = db.series(siteeditmaskpath)
+
+    # Loop over the masks
+    for automask in tqdm(db.series(siteautomaskpath), 'Displaying masks..'):
+
+        # Get the corresponding outphase series
+        patient_id = automask[1]
+        study = automask[2][0]
+        sequence = data.dixon_series_desc(record, patient_id, study)
+        series_op = [sitedatapath, patient_id, study, f'{sequence}_out_phase']
+
+        # Skip if file exists
+        png_file = os.path.join(sitedisplaypath, f'{patient_id}_{study}_{sequence}.png')
+        if os.path.exists(png_file):
+             continue
+        
+        # Get image array
+        op_arr = db.volume(series_op).values
+        
+        # Get mask (edited if it exists, else automated)
+        editmask = [siteeditmaskpath, patient_id, (study, 0), ('kidney_masks', 0)]
+        if editmask in all_editmasks:
+            mask_arr = db.volume(editmask).values
+        else:
+            mask_arr = db.volume(automask).values
+
+        # Get masks
         rois = {}
         for idx, roi in class_map.items():
             rois[roi] = (mask_arr==idx).astype(np.int16)
@@ -60,34 +109,5 @@ def mosaic(sitedatapath, sitemaskpath, sitedisplaypath):
 
 
 
-def leeds():
-    sitedatapath = os.path.join(datapath, "Leeds", "Patients") 
-    sitemaskpath = os.path.join(maskpath, "Leeds", "Patients")
-    sitedisplaypath = os.path.join(displaypath, "Leeds", "Patients")
-    # movie(sitedatapath, sitemaskpath, sitedisplaypath)
-    mosaic(sitedatapath, sitemaskpath, sitedisplaypath)
-
-def bari():
-    sitedatapath = os.path.join(datapath, "Bari", "Patients") 
-    sitemaskpath = os.path.join(maskpath, "Bari", "Patients")
-    sitedisplaypath = os.path.join(displaypath, "Bari", "Patients")
-    # movie(sitedatapath, sitemaskpath, sitedisplaypath)
-    mosaic(sitedatapath, sitemaskpath, sitedisplaypath)
-
-def sheffield():
-    sitedatapath = os.path.join(datapath, "Sheffield", "Patients") 
-    sitemaskpath = os.path.join(maskpath, "Sheffield", "Patients")
-    sitedisplaypath = os.path.join(displaypath, "Sheffield", "Patients")
-    # movie(sitedatapath, sitemaskpath, sitedisplaypath)
-    mosaic(sitedatapath, sitemaskpath, sitedisplaypath)
-
-
-def all():
-    bari()
-    leeds()
-    sheffield()
-
-if __name__=='__main__':
-    bari()
-    # leeds()
-    # sheffield()
+if __name__ == '__main__':
+    mosaic('Exeter')

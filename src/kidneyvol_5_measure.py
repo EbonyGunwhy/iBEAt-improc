@@ -1,5 +1,6 @@
 import os
 import logging
+import shutil
 
 from tqdm import tqdm
 import numpy as np
@@ -10,7 +11,8 @@ import pydmr
 from utils import data, radiomics
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-maskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_3_edit')
+automaskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_1_segment')
+editmaskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_3_edit')
 measurepath = os.path.join(os.getcwd(), 'build', 'kidneyvol_5_measure')
 os.makedirs(measurepath, exist_ok=True)
 
@@ -32,34 +34,53 @@ def concat(site):
         dmr_files = [os.path.join(dir, f) for f in dmr_files]
         dmr_file = os.path.join(sitemeasurepath, f'{patient}_results')
         pydmr.concat(dmr_files, dmr_file)
+        shutil.rmtree(dir)
 
 
 def measure(site):
 
     sitedatapath = os.path.join(datapath, site, "Patients") 
-    sitemaskpath = os.path.join(maskpath, site, "Patients")
+    siteautomaskpath = os.path.join(automaskpath, site, "Patients")
+    siteeditmaskpath = os.path.join(editmaskpath, site, "Patients")
     sitemeasurepath = os.path.join(measurepath, site, "Patients")
 
     record = data.dixon_record()
     class_map = {1: "kidney_left", 2: "kidney_right"}
+    all_editmasks = db.series(siteeditmaskpath)
+    all_automasks = db.series(siteautomaskpath)
 
-    all_mask_series = db.series(sitemaskpath)
-    for mask_series in tqdm(all_mask_series, desc='Extracting metrics'):
+    for automask in tqdm(all_automasks, desc='Extracting metrics'):
 
-        patient, study, series = mask_series[1], mask_series[2][0], mask_series[3][0]
+        patient, study, series = automask[1], automask[2][0], automask[3][0]
         dir = os.path.join(sitemeasurepath, patient)
         os.makedirs(dir, exist_ok=True)
+
+        # If the patient results exist, skip
+        dmr_file = os.path.join(sitemeasurepath, f'{patient}_results')
+        if os.path.exists(f'{dmr_file}.dmr.zip'):
+            continue
 
         sequence = data.dixon_series_desc(record, patient, study)
         data_study = [sitedatapath, patient, (study, 0)]
         all_data_series = db.series(data_study)
+
+        # Get mask volume (edited if it exists, else automated)
+        editmask = [siteeditmaskpath, patient, (study, 0), ('kidney_masks', 0)]
+        if editmask in all_editmasks:
+            mask_series = editmask
+        else:
+            mask_series = automask
+        vol = db.volume(mask_series)
         
         # Loop over the classes
         for idx, roi in class_map.items():
-            dmr_file = os.path.join(dir, f"{series}_{roi}")
+
+            # Skip if file exists
+            dmr_file = os.path.join(dir, f"{study}_{series}_{roi}")
             if os.path.exists(f'{dmr_file}.dmr.zip'):
                 continue
-            vol = db.volume(mask_series)
+
+            # Binary mask
             mask = (vol.values==idx).astype(np.float32)
             if np.sum(mask) == 0:
                 continue
@@ -74,7 +95,7 @@ def measure(site):
                 logging.error(f"Patient {patient} {roi} - error computing ski-shapes: {e}")
             else:
                 dmr['data'] = dmr['data'] | {p: v[1:] for p, v in results.items()}
-                dmr['pars'] = dmr['pars'] | {(patient, 'Baseline', p): v[0] for p, v in results.items()}
+                dmr['pars'] = dmr['pars'] | {(patient, study, p): v[0] for p, v in results.items()}
 
             # Get radiomics shape features
             try:
@@ -83,7 +104,7 @@ def measure(site):
                 logging.error(f"Patient {patient} {roi} - error computing radiomics-shapes: {e}")
             else:
                 dmr['data'] = dmr['data'] | {p:v[1:] for p, v in results.items()}
-                dmr['pars'] = dmr['pars'] | {(patient, 'Baseline', p): v[0] for p, v in results.items()}
+                dmr['pars'] = dmr['pars'] | {(patient, study, p): v[0] for p, v in results.items()}
 
             # Get radiomics texture features
             if roi in ['kidney_left', 'kidney_right']: # computational issues with larger ROIs.
@@ -98,20 +119,20 @@ def measure(site):
                         logging.error(f"Patient {patient} {roi} {img} - error computing radiomics-texture: {e}")
                     else:
                         dmr['data'] = dmr['data'] | {p:v[1:] for p, v in results.items()}
-                        dmr['pars'] = dmr['pars'] | {(patient, 'Baseline', p): v[0] for p, v in results.items()}
+                        dmr['pars'] = dmr['pars'] | {(patient, study, p): v[0] for p, v in results.items()}
 
             # Write results to file
             pydmr.write(dmr_file, dmr)
 
         # Both kidneys texture
-        dmr_file = os.path.join(dir, f"{series}_{roi}.dmr.zip")
+        roi = 'kidneys_both'
+        dmr_file = os.path.join(dir, f"{study}_{series}_{roi}.dmr.zip")
         if os.path.exists(dmr_file):
             continue
         class_index = {roi:idx for idx,roi in class_map.items()}
         vol = db.volume(mask_series)
         lk_mask = (vol.values==class_index['kidney_left']).astype(np.float32)
         rk_mask = (vol.values==class_index['kidney_right']).astype(np.float32)
-        roi = 'kidneys_both'
         mask = lk_mask + rk_mask
         if np.sum(mask) == 0:
             continue
@@ -139,15 +160,15 @@ def measure(site):
 
 
 
-
-
-
 def all():
     measure('Bari')
     measure('Leeds')
     measure('Sheffield')
 
+
+
 if __name__=='__main__':
-    measure('Bari')
+    # measure('Bari')
     # measure('Leeds')
     # measure('Sheffield')
+    measure('Exeter')

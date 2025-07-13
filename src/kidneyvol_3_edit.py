@@ -6,7 +6,7 @@ import numpy as np
 import napari
 import dbdicom as db
 
-from utils import data
+from utils import data, radiomics
 
 
 PATH = os.path.join(os.getcwd(), 'build')
@@ -22,6 +22,16 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+SITE = {
+    '1128': 'Bari',
+    '2128': 'Bordeaux',
+    '6128': 'Bordeaux',
+    '3128': 'Exeter',
+    '4128': 'Leeds',
+    '7128': 'Sheffield',
+    '5128': 'Turku',
+}
 
 
 def edit_mask_with_napari(image_3d: np.ndarray, mask_3d: np.ndarray) -> np.ndarray:
@@ -101,8 +111,78 @@ def edit_auto_masks(site):
         except Exception as e:
             logging.error(f"{patient} {study} error editing mask: {e}")
         else:
+            # TODO: in measure step, pick up edited from here and original if not edited
             vol = (edited_mask.astype(np.int16), auto_mask.affine)
-            db.write_volume(vol, edited_mask_series, ref=series_op)
+            if not np.array_equal(op.values, vol[0]):
+                db.write_volume(vol, edited_mask_series, ref=series_op)
+
+
+def convert_manual_masks():
+    # This converts masks made by Hugo using the original pipeline (downloaded from google drive)
+
+    # Extract all sub folders if needed
+    manual_mask_path = "C:\\Users\\md1spsx\\Documents\\Data\\iBEAt\\Edited_kidney_masks_2025_06_25"
+    restored_manual_mask_path = "C:\\Users\\md1spsx\\Documents\\Data\\iBEAt\\Edited_kidney_masks_2025_06_25_restore"
+    # db.restore(manual_mask_path, restored_manual_mask_path)
+
+    # Loop over all subfolders
+    for name in os.listdir(restored_manual_mask_path):
+        full_path = os.path.join(restored_manual_mask_path, name)
+        if os.path.isdir(full_path):
+            patient_id = name[:8]
+            study = 'Followup' if 'followup' in name else 'Baseline'
+            # Get the dixon reference geometry
+            all_series = db.series(full_path)
+            for dixon in all_series:
+                if dixon[-1][0] == "Dixon_post_contrast_out_phase":
+                    break
+                if dixon[-1][0] == "Dixon_out_phase":
+                    break
+            vol_dixon = db.volume(dixon)
+            # Get kidneys label image
+            vol_rk = None
+            vol_lk = None
+            for series in all_series:
+                if series[-1][0] == 'RK_ed': #2
+                    vol_rk = db.volume(series)
+                    # Needs rescaling to currect incrorrect rescale slope in DICOM save
+                    v0, v1 = np.min(vol_rk.values), np.max(vol_rk.values)
+                    if v1>v0:
+                        values = (vol_rk.values-v0)/(v1-v0)
+                        vol_rk.set_values(values)
+                    vol_rk = vol_rk.slice_like(vol_dixon)
+                elif series[-1][0] == 'LK_ed': #1
+                    vol_lk = db.volume(series)
+                    # Needs rescaling to currect incrorrect rescale slope in DICOM save
+                    v0, v1 = np.min(vol_lk.values), np.max(vol_lk.values)
+                    if v1>v0:
+                        values = (vol_lk.values-v0)/(v1-v0)
+                        vol_lk.set_values(values)
+                    vol_lk = vol_lk.slice_like(vol_dixon)
+            if vol_rk is None:
+                if vol_lk is None:
+                    continue
+                else:
+                    values = vol_lk.values
+                    values[values<0.5]=0
+                    values[values>=0.5]=1
+            else:
+                values = vol_rk.values
+                values[values<0.5]=0
+                values[values>=0.5]=2
+                if vol_lk is not None:
+                    values_lk = vol_lk.values
+                    values_lk[values_lk<0.5]=0
+                    values_lk[values_lk>=0.5]=1
+                    values += values_lk
+            # Save kidney label as DICOM
+            values = radiomics.largest_cluster_label(values)
+            vol = (values.astype(np.int16), vol_dixon.affine)
+            siteeditpath = os.path.join(editpath, SITE[patient_id[:4]], 'Patients')
+            os.makedirs(siteeditpath, exist_ok=True)
+            vol_series = [siteeditpath, patient_id, (study, 0), ('kidney_masks', 0)]
+            db.write_volume(vol, vol_series, ref=dixon)
+
 
 
 def all():
@@ -112,4 +192,5 @@ def all():
 
 
 if __name__=='__main__':
-    edit_auto_masks('Bari')
+    # edit_auto_masks('Bari')
+    convert_manual_masks()

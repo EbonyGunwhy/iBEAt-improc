@@ -3,11 +3,24 @@ import logging
 
 import dbdicom as db
 
-datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-archivepath = target_dir = os.path.join("G:\\Shared drives", "iBEAt Build", "dixon_2_data")
+
+def dixons(site):
+    datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
+    archivepath = os.path.join("G:\\Shared drives", "iBEAt Build", "dixon_2_data")
+    sitedatapath = os.path.join(datapath, site, 'Patients')
+    sitearchivepath = os.path.join(archivepath, site, 'Patients')
+    db.restore(sitearchivepath, sitedatapath)
 
 
-def restore(site):
+def segmentations(site):
+    datapath = os.path.join(os.getcwd(), 'build', 'kidneyvol_1_segment')
+    archivepath = os.path.join("G:\\Shared drives", "iBEAt Build", "kidneyvol_1_segment")
+    sitedatapath = os.path.join(datapath, site, 'Patients')
+    sitearchivepath = os.path.join(archivepath, site, 'Patients')
+    db.restore(sitearchivepath, sitedatapath)
+
+    datapath = os.path.join(os.getcwd(), 'build', 'kidneyvol_3_edit')
+    archivepath = os.path.join("G:\\Shared drives", "iBEAt Build", "kidneyvol_3_edit")
     sitedatapath = os.path.join(datapath, site, 'Patients')
     sitearchivepath = os.path.join(archivepath, site, 'Patients')
     db.restore(sitearchivepath, sitedatapath)
@@ -15,7 +28,5 @@ def restore(site):
 
 if __name__=='__main__':
 
-    # restore('Sheffield')
-    restore('Bari')
-    #restore('Leeds')
+    dixons('Bari')
 
