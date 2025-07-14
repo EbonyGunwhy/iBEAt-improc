@@ -10,9 +10,8 @@ import kidneyvol_4_display
 import kidneyvol_5_measure
 
 if __name__=='__main__':
-
+    
    site = 'Exeter'
-   kidneyvol_4_display.mosaic(site)
    kidneyvol_5_measure.measure(site)
 
    for site in ['Leeds', 'Bordeaux']:
@@ -20,3 +19,5 @@ if __name__=='__main__':
       kidneyvol_0_restore.segmentations(site)
       kidneyvol_4_display.mosaic(site)
       kidneyvol_5_measure.measure(site)
+
+

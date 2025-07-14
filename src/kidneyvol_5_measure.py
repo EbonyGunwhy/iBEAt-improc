@@ -151,7 +151,7 @@ def measure(site):
                 logging.error(f"Patient {patient} {roi} {img} - error computing radiomics-texture: {e}")
             else:
                 dmr['data'] = dmr['data'] | {p:v[1:] for p, v in results.items()}
-                dmr['pars'] = dmr['pars'] | {(patient, 'Baseline', p): v[0] for p, v in results.items()}
+                dmr['pars'] = dmr['pars'] | {(patient, study, p): v[0] for p, v in results.items()}
 
         # Write results to file
         pydmr.write(dmr_file, dmr)
