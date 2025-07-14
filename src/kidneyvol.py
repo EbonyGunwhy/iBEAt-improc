@@ -12,6 +12,8 @@ import kidneyvol_5_measure
 if __name__=='__main__':
     
    site = 'Exeter'
+   kidneyvol_0_restore.dixons(site)
+   kidneyvol_0_restore.segmentations(site)
    kidneyvol_5_measure.measure(site)
 
    for site in ['Leeds', 'Bordeaux']:
