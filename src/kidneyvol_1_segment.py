@@ -313,7 +313,10 @@ if __name__=='__main__':
     # segment_site('Bordeaux', "Patients")
     # segment_site('Leeds', "Patients")
     #segment_site('Bari', "Patients")
+    segment_site('Bari', 'Controls')
     segment_site('Leeds', 'Controls')
+    segment_site('Bordeaux', 'Controls')
+    segment_site('Turku', 'Controls')
     
     
     

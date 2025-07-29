@@ -1,6 +1,7 @@
 import os
 import logging
 import csv
+from datetime import datetime
 
 from tqdm import tqdm
 import matplotlib
@@ -24,6 +25,35 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+
+def calculate_age(birth_date_str, current_date_str):
+    """
+    Calculates age in years based on two dates in YYYYMMDD format.
+
+    Args:
+        birth_date_str (str or int): Birth date in YYYYMMDD format.
+        current_date_str (str or int): Current/reference date in YYYYMMDD format.
+
+    Returns:
+        int: Age in years.
+    """
+    # Convert to strings if passed as integers
+    birth_date_str = str(birth_date_str)
+    current_date_str = str(current_date_str)
+
+    # Parse the dates
+    birth_date = datetime.strptime(birth_date_str, "%Y%m%d")
+    current_date = datetime.strptime(current_date_str, "%Y%m%d")
+
+    # Calculate age
+    age = current_date.year - birth_date.year
+    # Adjust if current date is before the birthday this year
+    if (current_date.month, current_date.day) < (birth_date.month, birth_date.day):
+        age -= 1
+
+    return age
+
 
 
 def check_fatwater_swap(site):
@@ -190,7 +220,7 @@ def count_dixons(site):
         writer.writerows(data)
 
 
-def demographics(site, group):
+def demographics(group, site=None):
 
     if group == 'Controls':
         sitedatapath = os.path.join(datapath, group)
@@ -205,21 +235,32 @@ def demographics(site, group):
     
     # Build data
     data = [
-        ['Patient', 'Study', 'Sex', 'Age', 'Height', 'Weight']
+        ['Patient', 'Study', 'StudyDate', 'BirthDate', 'Sex', 'Age', 'Height', 'Weight']
     ]
      
-    for study in tqdm(db.studies(sitedatapath), desc=f"Summarising demographics for {site}"):
+    for study in tqdm(db.studies(sitedatapath), desc=f"Summarising demographics"):
         patient_id = study[1]
         study_desc = study[2][0]
-        if patient_id[:4] not in SITE_IDS[site]:
-            continue
+        if site is not None:
+            if patient_id[:4] not in SITE_IDS[site]:
+                continue
         first_file = db.files(study)[0]
         ds = pydicom.dcmread(first_file)
         row = [patient_id, study_desc]
-        for field in ['PatientSex', 'PatientAge', 'PatientSize', 'PatientWeight']:
-            try:
+        for field in ['StudyDate', 'PatientBirthDate', 'PatientSex', 'PatientAge', 'PatientSize', 'PatientWeight']:
+            if field in ds:
                 row.append(ds[field].value)
-            except:
+            # If Age is empty, try to derive it from the dates
+            elif field == 'PatientAge':
+                if ('PatientBirthDate' in ds) and ('StudyDate' in ds):
+                    try:
+                        age = calculate_age(ds['PatientBirthDate'].value, ds['StudyDate'].value)
+                        row.append(age)
+                    except:
+                        row.append('Unknown')
+                else:
+                    row.append('Unknown')
+            else:
                 row.append('Unknown')
         data.append(row)
 
@@ -234,8 +275,9 @@ def all():
 
 
 if __name__=='__main__':
+    
+    # count_dixons('Exeter')
     # fatwater_swap_record_template('Controls')
     # check_fatwater_swap('Controls')
-    # count_dixons('Exeter')
-    # count_dixons('Controls')
-    demographics('Leeds', 'Controls')
+    count_dixons('Controls')
+    # demographics('Controls')
