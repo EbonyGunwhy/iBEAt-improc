@@ -31,3 +31,13 @@ IBEAT = {
         # one subject per participant - find all
     ],
 }
+
+SITE_IDS = {
+    'Bari': ['1128'],
+    'Leeds': ['4128'],
+    'Bordeaux': ['2128', '6128'],
+    'Exeter': ['3128'],
+    'Leeds': ['4128'],
+    'Sheffield': ['7128'],
+    'Turku': ['5128', '6128'],
+}

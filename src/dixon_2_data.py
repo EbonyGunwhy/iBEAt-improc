@@ -181,6 +181,64 @@ def leeds_add_series_name(folder, all_series:list):
         counter += 1
     all_series.append(new_series_name)
 
+def leeds_setup_add_series_name(folder, all_series:list):
+
+    series_name = 'Dixon_1_'
+
+    # Add image type to the name
+    file = os.listdir(folder)[0]
+    ds = pydicom.dcmread(os.path.join(folder, file))
+    image_type = ds['ImageType'].value
+    props = image_type[3]
+    if props == 'IN_PHASE':
+        series_name += 'in_phase'  
+    elif props == 'OUT_PHASE':
+        series_name += 'out_phase'
+    elif props == 'WATER':
+        series_name += 'water'
+    elif props == 'FAT':
+        series_name += 'fat'
+    else:
+        raise ValueError(f'{folder} error: ImageType {props} not rcognized')
+    
+    # Add the appropriate number
+    new_series_name = series_name
+    counter = 2
+    while new_series_name in all_series:
+        new_series_name = series_name.replace('_1_', f'_{counter}_')
+        counter += 1
+    all_series.append(new_series_name)
+
+def leeds_repeatability_add_series_name(folder, all_series:list):
+
+    series_name = 'Dixon_1_'
+
+    # Add image type to the name
+    file = os.listdir(folder)[0]
+    ds = pydicom.dcmread(os.path.join(folder, file))
+    image_type = ds['ImageType'].value
+    props = image_type[3]
+    if props == 'ND':
+        props = image_type[4]
+    if props == 'IN_PHASE':
+        series_name += 'in_phase'  
+    elif props == 'OUT_PHASE':
+        series_name += 'out_phase'
+    elif props == 'WATER':
+        series_name += 'water'
+    elif props == 'FAT':
+        series_name += 'fat'
+    else:
+        raise ValueError(f'{folder} error: ImageType {props} not rcognized')
+    
+    # Add the appropriate number
+    new_series_name = series_name
+    counter = 2
+    while new_series_name in all_series:
+        new_series_name = series_name.replace('_1_', f'_{counter}_')
+        counter += 1
+    all_series.append(new_series_name)
+
 
 def bordeaux_add_series_desc(folder, all_series:list):
 
@@ -417,7 +475,7 @@ def leeds_054():
 
 
 
-def leeds():
+def leeds_patients():
 
     # Clean Leeds patient data
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients")
@@ -467,6 +525,145 @@ def leeds():
                 # Copy to the database using the harmonized names
                 dixon = db.series(extract_to)[0]
                 dixon_clean = [sitedatapath, pat_id, 'Baseline', pat_series[-1]]
+                # db.copy(dixon, dixon_clean)
+                try:
+                    dixon_vol = db.volume(dixon)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - {pat_series[-1]}: {e}")
+                else:
+                    db.write_volume(dixon_vol, dixon_clean, ref=dixon)
+
+
+def leeds_setup():
+
+    # Clean Leeds patient data
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Leeds", "Leeds_setup_scans")
+    sitedatapath = os.path.join(datapath, "Controls") 
+    os.makedirs(sitedatapath, exist_ok=True)
+    
+    # Loop over all patients
+    patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
+    for pat in tqdm(patients, desc='Building clean database..'):
+
+        # Get a standardized ID from the folder name
+        pat_id = {
+            'Leeds_MR_VOL_006': '4128_C06',
+            'Leeds_MR_VOL_007': '4128_C07',
+            'Leeds_MR_VOL_008': '4128_C08',
+            'Leeds_MR_VOL_009': '4128_C09',
+            'Leeds_MR_VOL_012': '4128_C12',
+            'Leeds_MR_VOL_013': '4128_C13',
+            'Leeds_MR_VOL_014': '4128_C14',
+            'Leeds_MR_VOL_016': '4128_C16',
+            'Leeds_MR_VOL_019': '4128_C19',
+            'Leeds_MR_VOL_020': '4128_C20',
+        }
+        pat_id = pat_id[os.path.basename(pat)]
+        study = [sitedatapath, pat_id, 'Visit1']
+
+        # If the dataset already exists, continue to the next
+        subdirs = [d for d in os.listdir(sitedatapath)
+           if os.path.isdir(os.path.join(sitedatapath, d))]
+        if f'Patient__{pat_id}' in subdirs: 
+            continue
+
+        with tempfile.TemporaryDirectory() as temp_folder:
+
+            pat_series = []
+            for zip_series in os.scandir(pat):
+
+                # Get the name of the zip file without extension
+                zip_name = os.path.splitext(os.path.basename(zip_series.path))[0]
+
+                # Extract to a temporary folder and flatten
+                extract_to = os.path.join(temp_folder, zip_name)
+                with zipfile.ZipFile(zip_series.path, 'r') as zip_ref:
+                    zip_ref.extractall(extract_to)
+                flatten_folder(extract_to)
+
+                # Add new series name to the list
+                try:
+                    leeds_setup_add_series_name(extract_to, pat_series)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
+                    continue
+
+                # Skip exceptions
+                if pat_id=='4128_C14' and pat_series[-1] == 'Dixon_2_out_phase':
+                    continue
+                if pat_id=='4128_C20' and pat_series[-1] == 'Dixon_2_out_phase':
+                    continue
+
+                # Copy to the database using the harmonized names
+                dixon = db.series(extract_to)[0]
+                dixon_clean = study + [pat_series[-1]]
+                # db.copy(dixon, dixon_clean)
+                try:
+                    dixon_vol = db.volume(dixon)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - {pat_series[-1]}: {e}")
+                else:
+                    db.write_volume(dixon_vol, dixon_clean, ref=dixon)
+
+
+def leeds_repeatability():
+
+    # Clean Leeds patient data
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Leeds", "Leeds_volunteer_repeatability_study")
+    sitedatapath = os.path.join(datapath, "Controls")
+    os.makedirs(sitedatapath, exist_ok=True)
+    
+    # Loop over all patients
+    patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
+    for pat in tqdm(patients, desc='Building clean database..'):
+
+        # Get a standardized ID from the folder name
+        pat_id = {
+            'Leeds_REP_VOL_001': '4128_C21',
+            'Leeds_REP_VOL_002': '4128_C22',
+            'Leeds_REP_VOL_003': '4128_C23',
+            'Leeds_REP_VOL_004': '4128_C24',
+            'REP_VOL_004': '4128_C24',
+            'Leeds_REP_VOL_005': '4128_C25',
+            'Leeds_Rep_Vol_005': '4128_C25',
+        }
+        pat_id = pat_id[os.path.basename(pat)[:-3]]
+        study = [sitedatapath, pat_id, (f'Visit{os.path.basename(pat)[-1]}', 0)]
+
+        # If the study already exists, continue to the next
+        if study in db.studies([sitedatapath, pat_id]): 
+            continue
+
+        with tempfile.TemporaryDirectory() as temp_folder:
+
+            pat_series = []
+            for zip_series in os.scandir(pat):
+
+                # Get the name of the zip file without extension
+                zip_name = os.path.splitext(os.path.basename(zip_series.path))[0]
+
+                # Extract to a temporary folder and flatten
+                extract_to = os.path.join(temp_folder, zip_name)
+                with zipfile.ZipFile(zip_series.path, 'r') as zip_ref:
+                    zip_ref.extractall(extract_to)
+                flatten_folder(extract_to)
+
+                # Add new series name to the list
+                try:
+                    leeds_repeatability_add_series_name(extract_to, pat_series)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
+                    continue
+
+                # # Skip exceptions
+                # if pat_id=='4128_C14' and pat_series[-1] == 'Dixon_2_out_phase':
+                #     continue
+                # if pat_id=='4128_C20' and pat_series[-1] == 'Dixon_2_out_phase':
+                #     continue
+
+                # Copy to the database using the harmonized names
+                dixon = db.series(extract_to)[0]
+                dixon_clean = study + [pat_series[-1]]
                 # db.copy(dixon, dixon_clean)
                 try:
                     dixon_vol = db.volume(dixon)
@@ -537,9 +734,108 @@ def bari_030(dixon_split):
     db.write_volume(out_phase_vol, out_phase_clean, ref=series)
 
 
+def bari_volunteers():
+
+    # Define input and output folders
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Bari", "Bari_Volunteers_Repeatability")
+    sitedatapath = os.path.join(datapath, "Controls")
+    os.makedirs(sitedatapath, exist_ok=True)
+
+    # Loop over all patients
+    patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
+    for pat in tqdm(patients, desc='Building clean database'):
+
+        # Get IDs from the folder name
+        pat_id = '1128_C01'
+        study_desc = {
+            'bari_volunteer1_20201222': 'Visit1',
+            'bari_volunteer1_20210109': 'Visit2',
+            'bari_volunteer1_20210123': 'Visit3',
+            'bari_volunteer1_20210130': 'Visit4',
+        }
+        study_desc = study_desc[os.path.basename(pat)]
+        study = [sitedatapath, pat_id, (study_desc, 0)]
+
+        # Find all zip series, remove those with 'OT' in the name and sort by series number
+        all_zip_series = [f for f in os.listdir(pat) if os.path.isfile(os.path.join(pat, f))]
+        all_zip_series = [s for s in all_zip_series if 'OT' not in s]
+        all_zip_series = sorted(all_zip_series, key=lambda x: int(x[7:-4]))
+
+        # loop over all series
+        pat_series = []
+        for zip_series in all_zip_series:
+
+            # Get the name of the zip file without extension
+            zip_name = zip_series[:-4]
+
+            # Get the harmonized series name 
+            try:
+                bari_add_series_name(zip_name, pat_series)
+            except Exception as e:
+                logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
+                continue
+
+            # Construct output series
+            out_phase_clean = study + [(pat_series[-1] + 'out_phase', 0)]
+            in_phase_clean = study + [(pat_series[-1] + 'in_phase', 0)]
+
+            # If the series already exists, continue to the next
+            if out_phase_clean in db.series(study):
+                continue
+
+            with tempfile.TemporaryDirectory() as temp_folder:
+
+                # Extract to a temporary folder and flatten it
+                os.makedirs(temp_folder, exist_ok=True)
+                try:
+                    extract_to = os.path.join(temp_folder, zip_name)
+                    with zipfile.ZipFile(os.path.join(pat, zip_series), 'r') as zip_ref:
+                        zip_ref.extractall(extract_to)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
+                    continue
+                flatten_folder(extract_to)
+
+                # Split series into in- and opposed phase
+                dixon = db.series(extract_to)[0]
+                try:
+                    dixon_split = db.split_series(dixon, 'EchoTime')
+                except Exception as e:
+                    logging.error(
+                        f"Error splitting Bari series {pat_id} "
+                        f"{os.path.basename(extract_to)}."
+                        f"The series is not included in the database.\n"
+                        f"--> Details of the error: {e}")
+                    continue
+                
+                # Check the echo times
+                if len(dixon_split) == 1:
+                    logging.error(
+                        f"Bari patient {pat_id}, series "
+                        f"{os.path.basename(extract_to)}: "
+                        f"Only one echo time found. Excluded from database.")
+                    continue    
+
+                # Out_phase is the one with the smallest TE
+                if dixon_split[0][0] < dixon_split[1][0]:
+                    out_phase = 0
+                    in_phase = 1
+                else:
+                    out_phase = 1
+                    in_phase = 0
+
+                # Write to the database using read/write volume to ensure proper slice order.
+                try:
+                    out_phase_vol = db.volume(dixon_split[out_phase][1])
+                    in_phase_vol = db.volume(dixon_split[in_phase][1])
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - {pat_series[-1]}: {e}")
+                else:
+                    db.write_volume(out_phase_vol, out_phase_clean, ref=dixon_split[out_phase][1])
+                    db.write_volume(in_phase_vol, in_phase_clean, ref=dixon_split[in_phase][1])
 
 
-def bari():
+def bari_patients():
 
     # Define input and output folders
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
@@ -663,6 +959,7 @@ def bari():
                 # ref = out_phase_clean
                 # db.write_volume((fw['fat'], out_phase.affine), fat, ref)
                 # db.write_volume((fw['water'], out_phase.affine), water, ref)
+
 
 
 
@@ -1242,7 +1539,7 @@ def exeter_patients(visit='Baseline'):
 
 def all():
     # leeds()
-    # bari()
+    # bari_patients()
     # sheffield()
     turku_ge()
     turku_philips()
@@ -1251,10 +1548,13 @@ def all():
 if __name__=='__main__':
     
     # sheffield()
-    # leeds()
-    # bari()
+    # leeds_patients()
+    # bari_patients()
     # turku_philips()
     # bordeaux_patients('Baseline')
     # bordeaux_patients('Followup')
     # exeter_patients('Baseline')
-    exeter_patients('Followup')
+    # exeter_patients('Followup')
+    # bari_volunteers()
+    # leeds_setup()
+    leeds_repeatability()

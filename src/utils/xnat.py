@@ -3,6 +3,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from tqdm import tqdm
+import numpy as np
 
 # import zipfile
 # import datetime
@@ -86,11 +87,19 @@ def download_scans(
         project_id (str): XNAT project ID.
         project_label (str): XNAT subject label. If this is None, 
             all subjects are downloaded. Defaults to None.
-        attr (str): Attribute to filter by (e.g. 'sequence').
-        value: Desired value, or list of values, for the attribute.
+        attr (str ro tuple of str): Attribute(s) to filter by (e.g. 'sequence').
+        value: Desired value(s) for the attribute(s).
     """
-    if isinstance(value, str):
+    if np.isscalar(value):
         value = [value]
+    if isinstance(attr, tuple):
+        value_list = []
+        for v in value:
+            if np.isscalar(v):
+                value_list.append([v])
+            else:
+                value_list.append(v)
+        value = tuple(value_list)
 
     session = requests.Session()
     session.auth = HTTPBasicAuth(username, password)
@@ -134,8 +143,17 @@ def download_scans(
                 scan_attrs = r.json()['items'][0]['data_fields']
 
                 # Continue if the scan does not have the right attributes
-                if scan_attrs.get(attr) not in value:
-                    continue
+                if isinstance(attr, str):
+                    if scan_attrs.get(attr) not in value:
+                        continue
+                if isinstance(attr, tuple):
+                    cont = False
+                    for i, a in enumerate(attr):
+                        if scan_attrs.get(a) not in value[i]:
+                            cont=True
+                            continue
+                    if cont:
+                        continue
 
                 # Define download locations
                 download_url = f"{xnat_url}/data/experiments/{exp_id}/scans/{scan_id}/resources/DICOM/files?format=zip"

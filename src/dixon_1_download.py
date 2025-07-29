@@ -25,7 +25,6 @@ def leeds_patients():
         value="*fl3d2",
     )
 
-
 def leeds_volunteers():
     username, password = xnat.credentials()
     xnat.download_scans(
@@ -39,6 +38,18 @@ def leeds_volunteers():
         value="*fl3d2",
     )
 
+def leeds_setup():
+    username, password = xnat.credentials()
+    xnat.download_scans(
+        xnat_url="https://qib.shef.ac.uk",
+        username=username,
+        password=password,
+        output_dir=path,
+        project_id="BEAt-DKD-WP4-Leeds",
+        subject_label="Leeds_setup_scans",
+        attr=("parameters/sequence", "frames"), 
+        value=("*fl3d2", 144),
+    )
 
 def bari_patients():
     username, password = xnat.credentials()
@@ -53,6 +64,21 @@ def bari_patients():
         value=[
             "T1w_abdomen_dixon_cor_bh", 
             "T1w_abdomen_post_contrast_dixon_cor_bh"
+        ],
+    )
+
+def bari_volunteers():
+    username, password = xnat.credentials()
+    xnat.download_scans(
+        xnat_url="https://qib.shef.ac.uk",
+        username=username,
+        password=password,
+        output_dir=path,
+        project_id="BEAt-DKD-WP4-Bari",
+        subject_label="Bari_Volunteers_Repeatability",
+        attr="series_description",
+        value=[
+            "T1w_abdomen_dixon_cor_bh", 
         ],
     )
 
@@ -225,14 +251,16 @@ if __name__=='__main__':
    
     # leeds_patients()
     # bari_patients()
-    #sheffield_patients()
+    # sheffield_patients()
     # turku_philips_patients()
-
     # bordeaux_patients_baseline()
     # bordeaux_patients_followup()
-    exeter_patients_baseline()
+    # exeter_patients_baseline()
     # exeter_patients_followup()
 
-    # leeds_volunteers()
+    # bari_volunteers()
+    # leeds_setup()
+    leeds_volunteers()
+    
 
 

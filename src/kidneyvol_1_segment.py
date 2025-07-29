@@ -9,6 +9,7 @@ import torch
 
 import utils.data
 from utils import radiomics
+from utils.constants import SITE_IDS
 
 
 # These need fully manual segmentation
@@ -179,10 +180,14 @@ logging.basicConfig(
 )
 
 
-def segment_site(site, batch_size=None):
+def segment_site(site, group, batch_size=None):
 
-    sitedatapath = os.path.join(datapath, site, "Patients") 
-    sitemaskpath = os.path.join(maskpath, site, "Patients")
+    if group == 'Controls':
+        sitedatapath = os.path.join(datapath, group) 
+        sitemaskpath = os.path.join(maskpath, group)
+    else:
+        sitedatapath = os.path.join(datapath, site, group) 
+        sitemaskpath = os.path.join(maskpath, site, group)
     os.makedirs(sitemaskpath, exist_ok=True)
 
     # List of selected dixon series
@@ -201,6 +206,10 @@ def segment_site(site, batch_size=None):
         study = series_op[2][0]
         series_op_desc = series_op[3][0]
         sequence = series_op_desc[:-10]
+
+        # Skip if the patient is not in the right site
+        if patient[:4] not in SITE_IDS[site]:
+            continue
 
         # Skip if it is not the right sequence
         selected_sequence = utils.data.dixon_series_desc(record, patient, study)
@@ -295,15 +304,16 @@ def segment_site(site, batch_size=None):
 
 
 def all():
-    segment_site('Sheffield')
-    segment_site('Leeds')
-    segment_site('Bari')
+    segment_site('Sheffield', "Patients")
+    segment_site('Leeds', "Patients")
+    segment_site('Bari', "Patients")
 
 
 if __name__=='__main__':
-    segment_site('Bordeaux')
-    # segment_site('Leeds')
-    #segment_site('Bari')
+    # segment_site('Bordeaux', "Patients")
+    # segment_site('Leeds', "Patients")
+    #segment_site('Bari', "Patients")
+    segment_site('Leeds', 'Controls')
     
     
     

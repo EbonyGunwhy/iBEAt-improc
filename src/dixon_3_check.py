@@ -2,15 +2,15 @@ import os
 import logging
 import csv
 
-
-
 from tqdm import tqdm
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
 import numpy as np
 import dbdicom as db
+import pydicom
+
+from utils.constants import SITE_IDS
 
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
@@ -27,8 +27,12 @@ logging.basicConfig(
 
 
 def check_fatwater_swap(site):
-    sitedatapath = os.path.join(datapath, site, "Patients") 
-    sitepngpath = os.path.join(data_qc_path, f'{site}_fat_water_swap.png')
+    if site == 'Controls':
+        sitedatapath = os.path.join(datapath, "Controls") 
+        sitepngpath = os.path.join(data_qc_path, f'controls_fat_water_swap.png')
+    else:
+        sitedatapath = os.path.join(datapath, site, "Patients") 
+        sitepngpath = os.path.join(data_qc_path, f'{site}_fat_water_swap.png')
 
     # Skip if the site has no data yet.
     if not os.path.exists(sitedatapath):
@@ -81,7 +85,10 @@ def check_fatwater_swap(site):
                 # Add white text with black background in upper-left corner
                 patient_id = series_fat[i][1]
                 series_desc = series_fat[i][-1][0]
-                time_point = "_Followup" if series_fat[i][2][0] == "Followup" else "_Baseline"
+                if site == 'Controls':
+                    time_point = f"_{series_fat[i][2][0]}"
+                else:
+                    time_point = "_Followup" if series_fat[i][2][0] == "Followup" else "_Baseline"
                 col.text(
                     0.01, 0.99,                   
                     f'{patient_id+time_point}\n{series_desc}',   
@@ -111,6 +118,10 @@ def fatwater_swap_record_template(site):
     The completed record should 
     be preserved in the data folder to be used in analyses.
     """
+    if site == 'Controls':
+        sitedatapath = os.path.join(datapath, "Controls")
+    else:
+        sitedatapath = os.path.join(datapath, site, "Patients")
 
     csv_file = os.path.join(data_qc_path, 'fat_water_swap_record.csv')
 
@@ -121,7 +132,7 @@ def fatwater_swap_record_template(site):
     swap_record = [
         ['Site', 'Patient', 'Study', 'Series', 'Swapped']
     ]
-    sitedatapath = os.path.join(datapath, site, "Patients") 
+     
     if os.path.exists(sitedatapath):
         for series in tqdm(db.series(sitedatapath), desc=f"Building record for {site}"):
             patient_id = series[1]
@@ -139,6 +150,11 @@ def fatwater_swap_record_template(site):
 
 def count_dixons(site):
 
+    if site == 'Controls':
+        sitedatapath = os.path.join(datapath, "Controls")
+    else:
+        sitedatapath = os.path.join(datapath, site, "Patients")
+
     # If the file already exists, don't run it again
     csv_file = os.path.join(data_qc_path, 'dixon_data.csv')
     if os.path.exists(csv_file):
@@ -149,12 +165,12 @@ def count_dixons(site):
     data = [
         ['Site', 'Patient', 'Study', 'Dixon', 'Dixon_post_contrast', 'Use']
     ]
-    sitedatapath = os.path.join(datapath, site, "Patients") 
+     
     for study in tqdm(db.studies(sitedatapath), desc=f"Counting dixons for {site}"):
         patient_id = study[1]
         study_desc = study[2][0]
         series = db.series(study)
-        series_desc = [s[3][0] for s in series] #removed s[3][0] to make it work
+        series_desc = [s[3][0] for s in series] 
         row = [site, patient_id, study_desc, 0, 0, '']
         for desc in ['Dixon', 'Dixon_post_contrast']:
             cnt=0
@@ -174,11 +190,52 @@ def count_dixons(site):
         writer.writerows(data)
 
 
+def demographics(site, group):
+
+    if group == 'Controls':
+        sitedatapath = os.path.join(datapath, group)
+    else:
+        sitedatapath = os.path.join(datapath, site, group)
+
+    # If the file already exists, don't run it again
+    csv_file = os.path.join(data_qc_path, 'demographics.csv')
+    if os.path.exists(csv_file):
+        print('demographics.csv' + ' already exists. Skipping this step.')
+        return
+    
+    # Build data
+    data = [
+        ['Patient', 'Study', 'Sex', 'Age', 'Height', 'Weight']
+    ]
+     
+    for study in tqdm(db.studies(sitedatapath), desc=f"Summarising demographics for {site}"):
+        patient_id = study[1]
+        study_desc = study[2][0]
+        if patient_id[:4] not in SITE_IDS[site]:
+            continue
+        first_file = db.files(study)[0]
+        ds = pydicom.dcmread(first_file)
+        row = [patient_id, study_desc]
+        for field in ['PatientSex', 'PatientAge', 'PatientSize', 'PatientWeight']:
+            try:
+                row.append(ds[field].value)
+            except:
+                row.append('Unknown')
+        data.append(row)
+
+    # Save as csv
+    with open(csv_file, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(data)
+
+
 def all():
     check_fatwater_swap('Turku')
 
 
 if __name__=='__main__':
-    # fatwater_swap_record_template('Exeter')
-    # check_fatwater_swap('Exeter')
-    count_dixons('Exeter')
+    # fatwater_swap_record_template('Controls')
+    # check_fatwater_swap('Controls')
+    # count_dixons('Exeter')
+    # count_dixons('Controls')
+    demographics('Leeds', 'Controls')

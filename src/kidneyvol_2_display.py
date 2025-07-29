@@ -6,6 +6,7 @@ from tqdm import tqdm
 import dbdicom as db
 
 from utils import plot, data
+from utils.constants import SITE_IDS
 
 
 datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
@@ -20,11 +21,17 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-def mosaic(site):
 
-    sitedatapath = os.path.join(datapath, site, "Patients") 
-    sitemaskpath = os.path.join(maskpath, site, "Patients")
-    sitedisplaypath = os.path.join(displaypath, site, "Patients")
+def mosaic(site, group):
+
+    if group == 'Controls':
+        sitedatapath = os.path.join(datapath, "Controls") 
+        sitemaskpath = os.path.join(maskpath, "Controls")
+        sitedisplaypath = os.path.join(displaypath, "Controls")
+    else:
+        sitedatapath = os.path.join(datapath, site, "Patients") 
+        sitemaskpath = os.path.join(maskpath, site, "Patients")
+        sitedisplaypath = os.path.join(displaypath, site, "Patients")
     os.makedirs(sitedisplaypath, exist_ok=True)
 
     record = data.dixon_record()
@@ -38,6 +45,10 @@ def mosaic(site):
         study = mask[2][0]
         sequence = data.dixon_series_desc(record, patient_id, study)
         series_op = [sitedatapath, patient_id, study, f'{sequence}_out_phase']
+
+        # Skip if not in the right site
+        if patient_id[:4] not in SITE_IDS[site]:
+            continue
 
         # Skip if file exists
         png_file = os.path.join(sitedisplaypath, f'{patient_id}_{study}_{sequence}.png')
@@ -62,11 +73,12 @@ def mosaic(site):
 
 
 def all():
-    mosaic('Bari')
-    mosaic('Leeds')
-    mosaic('Sheffield')
-    mosaic('Bordeaux')
+    mosaic('Bari', 'Patients')
+    mosaic('Leeds', 'Patients')
+    mosaic('Sheffield', 'Patients')
+    mosaic('Bordeaux', 'Patients')
+    mosaic('Controls', 'Patients')
 
 
 if __name__=='__main__':
-    mosaic('Bordeaux')
+    mosaic('Leeds', 'Controls')
