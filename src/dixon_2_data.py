@@ -1998,6 +1998,6 @@ if __name__=='__main__':
     # leeds_setup()
     # leeds_repeatability()
     # bordeaux_volunteers()
-    # turku_philips_volunteers()
-    turku_ge_volunteers()
+    turku_philips_volunteers()
+    # turku_ge_volunteers()
     # turku_ge_setup()
