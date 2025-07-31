@@ -278,6 +278,6 @@ if __name__=='__main__':
     
     # count_dixons('Exeter')
     # fatwater_swap_record_template('Controls')
-    # check_fatwater_swap('Controls')
-    count_dixons('Controls')
+    check_fatwater_swap('Controls')
+    # count_dixons('Controls')
     # demographics('Controls')

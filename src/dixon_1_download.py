@@ -326,7 +326,7 @@ def exeter_volunteers():
         password=password,
         output_dir=path,
         project_id="BEAt-DKD-WP4-Exeter",
-        subject_label="Exeter_Volunteers_Repeatability",
+        subject_label="Exeter_Volunteer",
         attr="series_description",
         value=[
             "T1w_abdomen_dixon_cor_bh", 
@@ -390,11 +390,11 @@ if __name__=='__main__':
     # leeds_setup()
     # leeds_volunteers()
     # bordeaux_volunteers()
-    # exeter_volunteers()
-    # exeter_setup()
+    exeter_volunteers()
+    exeter_setup()
     # turku_philips_repeatability()
     # turku_ge_repeatability()
-    turku_ge_setup()
+    # turku_ge_setup()
     
 
 

@@ -60,12 +60,13 @@ def edit_mask_with_napari(image_3d: np.ndarray, mask_3d: np.ndarray) -> np.ndarr
     # Display the image and the mask
     viewer.add_image(image_3d, name='Image')
     mask_layer = viewer.add_labels(mask_3d, name='Mask')
+    mask_layer.mode = 'paint'
+    mask_layer.opacity = 0.4
+    mask_layer.brush_size = 6
 
     # Set 2D slicing and coronal orientation for (X, Y, Z) image
     viewer.dims.ndisplay = 2
     viewer.dims.order = [2, 1, 0]  # Y, Z, X order for coronal view
-
-    print("Edit the mask. Close the Napari window to return the edited mask.")
 
     # Run Napari event loop
     napari.run()
@@ -76,9 +77,14 @@ def edit_mask_with_napari(image_3d: np.ndarray, mask_3d: np.ndarray) -> np.ndarr
 
 def edit_auto_masks(site):
 
-    sitedatapath = os.path.join(datapath, site, "Patients") 
-    sitemaskpath = os.path.join(maskpath, site, "Patients")
-    siteeditpath = os.path.join(editpath, site, "Patients")
+    if site == 'Controls':
+        sitedatapath = os.path.join(datapath, "Controls") 
+        sitemaskpath = os.path.join(maskpath, "Controls")
+        siteeditpath = os.path.join(editpath, "Controls")
+    else:
+        sitedatapath = os.path.join(datapath, site, "Patients") 
+        sitemaskpath = os.path.join(maskpath, site, "Patients")
+        siteeditpath = os.path.join(editpath, site, "Patients")
 
     # List of selected dixon series
     record = data.dixon_record()
@@ -111,10 +117,10 @@ def edit_auto_masks(site):
         except Exception as e:
             logging.error(f"{patient} {study} error editing mask: {e}")
         else:
-            # TODO: in measure step, pick up edited from here and original if not edited
             vol = (edited_mask.astype(np.int16), auto_mask.affine)
-            if not np.array_equal(op.values, vol[0]):
-                db.write_volume(vol, edited_mask_series, ref=series_op)
+            db.write_volume(vol, edited_mask_series, ref=series_op)
+            # if not np.array_equal(auto_mask.values, vol[0]):
+            #   db.write_volume(vol, edited_mask_series, ref=series_op)
 
 
 def convert_manual_masks():
@@ -193,4 +199,5 @@ def all():
 
 if __name__=='__main__':
     # edit_auto_masks('Bari')
-    convert_manual_masks()
+    # convert_manual_masks()
+    edit_auto_masks('Controls')

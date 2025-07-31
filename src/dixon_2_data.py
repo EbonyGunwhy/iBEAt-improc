@@ -296,6 +296,35 @@ def exeter_add_series_desc(folder, all_series:list):
     all_series.append(new_series_desc)
 
 
+def exeter_add_volunteer_series_desc(folder, all_series:list):
+
+    # Read series description from file
+    file = os.listdir(folder)[0]
+    ds = pydicom.dcmread(os.path.join(folder, file))
+    original_series_desc = ds['SeriesDescription'].value
+    
+    new_series_desc = {
+        "T1w_abdomen_dixon_cor_bh_opp": 'Dixon_1_out_phase', 
+        "T1w_abdomen_dixon_cor_bh_in": 'Dixon_1_in_phase',
+        "T1w_abdomen_dixon_cor_bh_F": 'Dixon_1_fat',
+        "T1w_abdomen_dixon_cor_bh_W": 'Dixon_1_water',
+        "T1w_abdomen_post_contrast_dixon_cor_bh_opp": 'Dixon_1_out_phase',
+        "T1w_abdomen_post_contrast_dixon_cor_bh_in": 'Dixon_1_in_phase',
+        "T1w_abdomen_post_contrast_dixon_cor_bh_F": 'Dixon_1_fat',
+        "T1w_abdomen_post_contrast_dixon_cor_bh_W": 'Dixon_1_water',
+    }
+    series_desc = new_series_desc[original_series_desc]
+
+    # Increment counter if needed
+    new_series_desc = series_desc
+    counter = 2
+    while new_series_desc in all_series:
+        new_series_desc = series_desc.replace('_1_', f'_{counter}_')
+        counter += 1
+    all_series.append(new_series_desc)
+
+
+
 def sheffield_add_series_desc(folder, all_series:list):
 
     # Read series description from file
@@ -1973,6 +2002,182 @@ def exeter_patients(visit='Baseline'):
                                 db.write_volume(dixon_vol, dixon_clean, ref=dixon)
 
 
+def exeter_setup():
+
+    # Clean Leeds patient data
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Exeter", f"Exeter_setup_scans")
+    sitedatapath = os.path.join(datapath, "Controls")
+    os.makedirs(sitedatapath, exist_ok=True)
+
+    # Read fat-water swap record to avoid repeated reading at the end
+    record = os.path.join(os.getcwd(), 'src', 'data', 'fat_water_swap_record.csv')
+    with open(record, 'r') as file:
+        reader = csv.reader(file)
+        record = [row for row in reader]
+
+    # Loop over all patients
+    patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
+    for patient in tqdm(patients, desc='Building clean database'):
+
+        # Get a standardized ID from the folder name
+        desc = {
+            'TestPatient1': ('3128_C01', 'Visit1'),
+            'TestPatient2': ('3128_C02', 'Visit1'),
+            'TestPatient5': ('3128_C01', 'Visit2'),
+        }
+        pat_id, visit = desc[os.path.basename(patient)]
+
+        # If the study already exists, continue to the next
+        dixon_clean_study = [sitedatapath, pat_id, (visit, 0)]
+        if dixon_clean_study in db.studies([sitedatapath, pat_id]):
+            continue
+
+        # Find all zip series in the experiment and sort by series number
+        all_zip_series = [f for f in os.listdir(patient) if os.path.isfile(os.path.join(patient, f))]
+        all_zip_series = sorted(all_zip_series, key=lambda x: int(x[7:-4]))
+
+        # Extract all series of the patient
+        with tempfile.TemporaryDirectory() as temp_folder:
+
+            pat_series = []
+            tmp_series_folder = {} # keep a list of folders for each series
+    
+            for zip_series in all_zip_series:
+
+                # Get the name of the zip file without extension.
+                zip_name = zip_series[:-4]
+
+                # Extract to a temporary folder and flatten it
+                try:
+                    extract_to = os.path.join(temp_folder, zip_name)
+                    with zipfile.ZipFile(os.path.join(patient, zip_series), 'r') as zip_ref:
+                        zip_ref.extractall(extract_to)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
+                    continue
+                flatten_folder(extract_to)
+
+                # Add new series to the list 
+                try:
+                    exeter_add_volunteer_series_desc(extract_to, pat_series)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
+                    continue
+
+                # Save in dictionary
+                tmp_series_folder[pat_series[-1]] = extract_to
+
+
+            # Write the series to the database in the proper order
+            for series in ['Dixon', 'Dixon_post_contrast']:
+                for counter in [1,2,3]: # never more than 3 repetitions
+                    for image_type in ['out_phase', 'in_phase', 'fat', 'water']:
+                        series_desc = f'{series}_{counter}_{image_type}'
+                        if series_desc in tmp_series_folder:
+                            extract_to = tmp_series_folder[series_desc]
+                            # Copy to the database using the harmonized names
+                            dixon = db.series(extract_to)[0]
+                            dixon_clean = dixon_clean_study + [(series_desc, 0)]
+                            # Perform fat-water swap if needed
+                            dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
+                            try:
+                                dixon_vol = db.volume(dixon)
+                            except Exception as e:
+                                logging.error(f"Patient {pat_id} - {series_desc}: {e}")
+                            else:
+                                db.write_volume(dixon_vol, dixon_clean, ref=dixon)
+
+
+def exeter_repeatability():
+
+    # Clean Leeds patient data
+    sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Exeter", f"Exeter_Volunteer")
+    sitedatapath = os.path.join(datapath, "Controls")
+    os.makedirs(sitedatapath, exist_ok=True)
+
+    # Read fat-water swap record to avoid repeated reading at the end
+    record = os.path.join(os.getcwd(), 'src', 'data', 'fat_water_swap_record.csv')
+    with open(record, 'r') as file:
+        reader = csv.reader(file)
+        record = [row for row in reader]
+
+    # Loop over all patients
+    patients = [f.path for f in os.scandir(sitedownloadpath) if f.is_dir()]
+    for patient in tqdm(patients, desc='Building clean database'):
+
+        # Get a standardized ID from the folder name
+        desc = {
+            'TE37-001_V1': ('3128_C03', 'Visit1'),
+            'TE37-001_V2': ('3128_C03', 'Visit2'),
+            'TE37-001_V3': ('3128_C03', 'Visit3'),
+            'TE37-001_V4': ('3128_C03', 'Visit4'),
+            'TE37-001_V5': ('3128_C03', 'Visit5'),
+        }
+        desc = desc[os.path.basename(patient)]
+        pat_id = desc[0]
+        visit = desc[1]
+
+        # If the study already exists, continue to the next
+        dixon_clean_study = [sitedatapath, pat_id, (visit, 0)]
+        if dixon_clean_study in db.studies([sitedatapath, pat_id]):
+            continue
+
+        # Find all zip series in the experiment and sort by series number
+        all_zip_series = [f for f in os.listdir(patient) if os.path.isfile(os.path.join(patient, f))]
+        all_zip_series = sorted(all_zip_series, key=lambda x: int(x[7:-4]))
+
+        # Extract all series of the patient
+        with tempfile.TemporaryDirectory() as temp_folder:
+
+            pat_series = []
+            tmp_series_folder = {} # keep a list of folders for each series
+    
+            for zip_series in all_zip_series:
+
+                # Get the name of the zip file without extension.
+                zip_name = zip_series[:-4]
+
+                # Extract to a temporary folder and flatten it
+                try:
+                    extract_to = os.path.join(temp_folder, zip_name)
+                    with zipfile.ZipFile(os.path.join(patient, zip_series), 'r') as zip_ref:
+                        zip_ref.extractall(extract_to)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error extracting {zip_name}: {e}")
+                    continue
+                flatten_folder(extract_to)
+
+                # Add new series to the list 
+                try:
+                    exeter_add_volunteer_series_desc(extract_to, pat_series)
+                except Exception as e:
+                    logging.error(f"Patient {pat_id} - error renaming {zip_name}: {e}")
+                    continue
+
+                # Save in dictionary
+                tmp_series_folder[pat_series[-1]] = extract_to
+
+
+            # Write the series to the database in the proper order
+            for series in ['Dixon', 'Dixon_post_contrast']:
+                for counter in [1,2,3]: # never more than 3 repetitions
+                    for image_type in ['out_phase', 'in_phase', 'fat', 'water']:
+                        series_desc = f'{series}_{counter}_{image_type}'
+                        if series_desc in tmp_series_folder:
+                            extract_to = tmp_series_folder[series_desc]
+                            # Copy to the database using the harmonized names
+                            dixon = db.series(extract_to)[0]
+                            dixon_clean = dixon_clean_study + [(series_desc, 0)]
+                            # Perform fat-water swap if needed
+                            dixon_clean = swap_fat_water(record, dixon_clean, f'{series}_{counter}', image_type)
+                            try:
+                                dixon_vol = db.volume(dixon)
+                            except Exception as e:
+                                logging.error(f"Patient {pat_id} - {series_desc}: {e}")
+                            else:
+                                db.write_volume(dixon_vol, dixon_clean, ref=dixon)
+
+
 
 def all():
     # leeds()
@@ -1998,6 +2203,8 @@ if __name__=='__main__':
     # leeds_setup()
     # leeds_repeatability()
     # bordeaux_volunteers()
-    turku_philips_volunteers()
+    # turku_philips_volunteers()
     # turku_ge_volunteers()
     # turku_ge_setup()
+    # exeter_setup()
+    exeter_repeatability()

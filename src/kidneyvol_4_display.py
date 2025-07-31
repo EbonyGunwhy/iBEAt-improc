@@ -61,10 +61,16 @@ def movie(sitedatapath, sitemaskpath, sitedisplaypath):
 
 
 def mosaic(site):
-    sitedatapath = os.path.join(datapath, site, "Patients") 
-    siteautomaskpath = os.path.join(automaskpath, site, "Patients")
-    siteeditmaskpath = os.path.join(editmaskpath, site, "Patients")
-    sitedisplaypath = os.path.join(displaypath, site, "Patients")
+    if site == 'Controls':
+        sitedatapath = os.path.join(datapath, "Controls") 
+        siteautomaskpath = os.path.join(automaskpath, "Controls")
+        siteeditmaskpath = os.path.join(editmaskpath, "Controls")
+        sitedisplaypath = os.path.join(displaypath, "Controls")
+    else:
+        sitedatapath = os.path.join(datapath, site, "Patients") 
+        siteautomaskpath = os.path.join(automaskpath, site, "Patients")
+        siteeditmaskpath = os.path.join(editmaskpath, site, "Patients")
+        sitedisplaypath = os.path.join(displaypath, site, "Patients")
     os.makedirs(sitedisplaypath, exist_ok=True)
 
     record = data.dixon_record()
@@ -110,4 +116,5 @@ def mosaic(site):
 
 
 if __name__ == '__main__':
-    mosaic('Exeter')
+    # mosaic('Exeter')
+    mosaic('Controls')

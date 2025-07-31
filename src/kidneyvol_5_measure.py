@@ -25,7 +25,10 @@ logging.basicConfig(
 
 
 def concat(site):
-    sitemeasurepath = os.path.join(measurepath, site, "Patients")
+    if site == 'Controls':
+        sitemeasurepath = os.path.join(measurepath, "Controls") 
+    else:   
+        sitemeasurepath = os.path.join(measurepath, site, "Patients")
     # Concatenate all dmr files of each subject
     patients = [f.path for f in os.scandir(sitemeasurepath) if f.is_dir()]
     for patient in patients:
@@ -39,10 +42,16 @@ def concat(site):
 
 def measure(site):
 
-    sitedatapath = os.path.join(datapath, site, "Patients") 
-    siteautomaskpath = os.path.join(automaskpath, site, "Patients")
-    siteeditmaskpath = os.path.join(editmaskpath, site, "Patients")
-    sitemeasurepath = os.path.join(measurepath, site, "Patients")
+    if site == 'Controls':
+        sitedatapath = os.path.join(datapath, "Controls") 
+        siteautomaskpath = os.path.join(automaskpath, "Controls")
+        siteeditmaskpath = os.path.join(editmaskpath, "Controls")
+        sitemeasurepath = os.path.join(measurepath, "Controls")         
+    else:
+        sitedatapath = os.path.join(datapath, site, "Patients") 
+        siteautomaskpath = os.path.join(automaskpath, site, "Patients")
+        siteeditmaskpath = os.path.join(editmaskpath, site, "Patients")
+        sitemeasurepath = os.path.join(measurepath, site, "Patients")
 
     record = data.dixon_record()
     class_map = {1: "kidney_left", 2: "kidney_right"}
@@ -171,4 +180,5 @@ if __name__=='__main__':
     # measure('Bari')
     # measure('Leeds')
     # measure('Sheffield')
-    measure('Exeter')
+    # measure('Exeter')
+    measure('Controls')

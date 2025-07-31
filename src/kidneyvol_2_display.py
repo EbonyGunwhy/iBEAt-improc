@@ -84,4 +84,5 @@ if __name__=='__main__':
     # mosaic('Bari', 'Controls')
     # mosaic('Leeds', 'Controls')
     # mosaic('Bordeaux', 'Controls')
-    mosaic('Turku', 'Controls')
+    # mosaic('Turku', 'Controls')
+    mosaic('Exeter', 'Controls')
