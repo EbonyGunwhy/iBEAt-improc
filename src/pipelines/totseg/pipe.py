@@ -12,6 +12,12 @@ def run():
     # stage_1_segment.segment('Controls')
     # stage_2_display.mosaic('Controls')
     # stage_2_display.mosaic('Controls', organs=['pancreas', 'liver'])
-    stage_4_archive.autosegmentation('Controls')
-    # stage_0_restore.dixons('Patients', 'Bari')
-    # stage_1_segment.segment('Patients', 'Bari')
+    # stage_4_archive.autosegmentation('Controls')
+
+    # Run this to generate results for patients
+    stage_0_restore.dixons('Patients', 'Bari')
+    stage_0_restore.segmentations('Patients', 'Bari')
+    stage_1_segment.segment('Patients', 'Bari')
+    stage_2_display.mosaic('Patients', 'Bari')
+    stage_2_display.mosaic('Patients', 'Bari', organs=['pancreas', 'liver'])
+    stage_4_archive.autosegmentation('Patients', 'Bari')
