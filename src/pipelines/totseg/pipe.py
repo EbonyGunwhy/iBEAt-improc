@@ -15,9 +15,10 @@ def run():
     # stage_4_archive.autosegmentation('Controls')
 
     # Run this to generate results for patients
-    stage_0_restore.dixons('Patients', 'Bari')
-    stage_0_restore.segmentations('Patients', 'Bari')
-    stage_1_segment.segment('Patients', 'Bari')
-    stage_2_display.mosaic('Patients', 'Bari')
-    stage_2_display.mosaic('Patients', 'Bari', organs=['pancreas', 'liver'])
-    stage_4_archive.autosegmentation('Patients', 'Bari')
+    site = 'Bari'
+    stage_0_restore.dixons('Patients', site)
+    stage_0_restore.segmentations('Patients', site)
+    stage_1_segment.segment('Patients', site)
+    stage_2_display.mosaic('Patients', site)
+    stage_2_display.mosaic('Patients', site, organs=['pancreas', 'liver'])
+    stage_4_archive.autosegmentation('Patients', site)
