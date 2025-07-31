@@ -167,8 +167,8 @@ TOTSEG = [
 ]
 
 
-datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data') 
-maskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_1_segment') 
+datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data') 
+maskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol', 'stage_1_segment') 
 os.makedirs(maskpath, exist_ok=True)
 
 
@@ -180,14 +180,14 @@ logging.basicConfig(
 )
 
 
-def segment_site(site, group, batch_size=None):
+def segment_site(group, site=None, batch_size=None):
 
     if group == 'Controls':
         sitedatapath = os.path.join(datapath, group) 
         sitemaskpath = os.path.join(maskpath, group)
     else:
-        sitedatapath = os.path.join(datapath, site, group) 
-        sitemaskpath = os.path.join(maskpath, site, group)
+        sitedatapath = os.path.join(datapath, group, site) 
+        sitemaskpath = os.path.join(maskpath, group, site)
     os.makedirs(sitemaskpath, exist_ok=True)
 
     # List of selected dixon series
@@ -301,20 +301,3 @@ def segment_site(site, group, batch_size=None):
             if count >= batch_size:
                 return
 
-
-
-def all():
-    segment_site('Sheffield', "Patients")
-    segment_site('Leeds', "Patients")
-    segment_site('Bari', "Patients")
-
-
-if __name__=='__main__':
-    # segment_site('Bordeaux', "Patients")
-    # segment_site('Leeds', "Patients")
-    # segment_site('Bari', "Patients")
-    # segment_site('Bari', 'Controls')
-    # segment_site('Leeds', 'Controls')
-    # segment_site('Bordeaux', 'Controls')
-    # segment_site('Turku', 'Controls')
-    segment_site('Exeter', 'Controls')

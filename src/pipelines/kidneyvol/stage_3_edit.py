@@ -10,9 +10,9 @@ from utils import data, radiomics
 
 
 PATH = os.path.join(os.getcwd(), 'build')
-datapath = os.path.join(PATH, 'dixon_2_data')
-maskpath = os.path.join(PATH, 'kidneyvol_1_segment')
-editpath = os.path.join(PATH, 'kidneyvol_3_edit')
+datapath = os.path.join(PATH, 'dixon', 'stage_2_data')
+maskpath = os.path.join(PATH, 'kidneyvol', 'stage_1_segment')
+editpath = os.path.join(PATH, 'kidneyvol', 'stage_3_edit')
 os.makedirs(editpath, exist_ok=True)
 
 
@@ -75,16 +75,16 @@ def edit_mask_with_napari(image_3d: np.ndarray, mask_3d: np.ndarray) -> np.ndarr
     return mask_layer.data
 
 
-def edit_auto_masks(site):
+def edit_auto_masks(group, site=None):
 
-    if site == 'Controls':
+    if group == 'Controls':
         sitedatapath = os.path.join(datapath, "Controls") 
         sitemaskpath = os.path.join(maskpath, "Controls")
         siteeditpath = os.path.join(editpath, "Controls")
     else:
-        sitedatapath = os.path.join(datapath, site, "Patients") 
-        sitemaskpath = os.path.join(maskpath, site, "Patients")
-        siteeditpath = os.path.join(editpath, site, "Patients")
+        sitedatapath = os.path.join(datapath, "Patients", site) 
+        sitemaskpath = os.path.join(maskpath, "Patients", site)
+        siteeditpath = os.path.join(editpath, "Patients", site)
 
     # List of selected dixon series
     record = data.dixon_record()
@@ -189,15 +189,3 @@ def convert_manual_masks():
             vol_series = [siteeditpath, patient_id, (study, 0), ('kidney_masks', 0)]
             db.write_volume(vol, vol_series, ref=dixon)
 
-
-
-def all():
-    edit_auto_masks('Bari')
-    edit_auto_masks('Leeds')
-    edit_auto_masks('Sheffield')
-
-
-if __name__=='__main__':
-    # edit_auto_masks('Bari')
-    # convert_manual_masks()
-    edit_auto_masks('Controls')

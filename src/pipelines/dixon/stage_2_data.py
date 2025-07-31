@@ -21,8 +21,8 @@ EXCLUDE = [
     "7128_068", # Sheffield: data only until T2 haste
 ]
 
-downloadpath = os.path.join(os.getcwd(), 'build', 'dixon_1_download')
-datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
+downloadpath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_1_download')
+datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data')
 os.makedirs(datapath, exist_ok=True)
 
 
@@ -550,7 +550,7 @@ def leeds_patients():
 
     # Clean Leeds patient data
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Leeds", "Leeds_Patients")
-    sitedatapath = os.path.join(datapath, "Leeds", "Patients") 
+    sitedatapath = os.path.join(datapath, "Patients", "Leeds") 
     os.makedirs(sitedatapath, exist_ok=True)
     
     # Loop over all patients
@@ -753,7 +753,7 @@ def bari_030(dixon_split):
     # slice location 13. Solved by interpolating to recover the missing 
     # slices.
 
-    sitedatapath = os.path.join(datapath, "Bari", "Patients")
+    sitedatapath = os.path.join(datapath, "Patients", "Bari")
     pat_id = '1128_030'
     series_desc = 'Dixon_1'
 
@@ -910,7 +910,7 @@ def bari_patients():
 
     # Define input and output folders
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
-    sitedatapath = os.path.join(datapath, "Bari", "Patients")
+    sitedatapath = os.path.join(datapath, "Patients", "Bari")
     os.makedirs(sitedatapath, exist_ok=True)
 
     # Loop over all patients
@@ -1038,7 +1038,7 @@ def sheffield():
 
     # Clean Leeds patient data
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Sheffield")
-    sitedatapath = os.path.join(datapath, "Sheffield", "Patients") 
+    sitedatapath = os.path.join(datapath, "Patients", "Sheffield") 
     os.makedirs(sitedatapath, exist_ok=True)
 
     # Read fat-water swap record to avoid repeated reading at the end
@@ -1137,7 +1137,7 @@ def turku_ge_patients():
 
     # Clean Leeds patient data
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Turku", "Turku_Patients_GE")
-    sitedatapath = os.path.join(datapath, "Turku", "Patients") 
+    sitedatapath = os.path.join(datapath, "Patients", "Turku") 
     os.makedirs(sitedatapath, exist_ok=True)
 
     # Read fat-water swap record to avoid repeated reading at the end
@@ -1431,7 +1431,7 @@ def turku_philips_patients():
 
     # Define input and output folders
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Turku","Turku_Patients_Philips")
-    sitedatapath = os.path.join(datapath, "Turku_Philips", "Patients")
+    sitedatapath = os.path.join(datapath, "Patients", "Turku_Philips")
     os.makedirs(sitedatapath, exist_ok=True)
 
     # Loop over all patients
@@ -1628,7 +1628,7 @@ def bordeaux_patients(visit='Baseline'):
 
     # Clean Leeds patient data
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Bordeaux", f"Bordeaux_Patients_{visit}")
-    sitedatapath = os.path.join(datapath, "Bordeaux", "Patients") 
+    sitedatapath = os.path.join(datapath, "Patients", "Bordeaux") 
     os.makedirs(sitedatapath, exist_ok=True)
 
     # Read fat-water swap record to avoid repeated reading at the end
@@ -1827,7 +1827,7 @@ def exeter_111():
 
     # Clean Leeds patient data
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Exeter", f"Exeter_Patients_{visit}")
-    sitedatapath = os.path.join(datapath, "Exeter", "Patients") 
+    sitedatapath = os.path.join(datapath, "Patients", "Exeter") 
     os.makedirs(sitedatapath, exist_ok=True)
 
     patient = os.path.join(sitedownloadpath, 'iBE-3128-111')
@@ -1893,7 +1893,7 @@ def exeter_patients(visit='Baseline'):
 
     # Clean Leeds patient data
     sitedownloadpath = os.path.join(downloadpath, "BEAt-DKD-WP4-Exeter", f"Exeter_Patients_{visit}")
-    sitedatapath = os.path.join(datapath, "Exeter", "Patients") 
+    sitedatapath = os.path.join(datapath, "Patients", "Exeter") 
     os.makedirs(sitedatapath, exist_ok=True)
 
     # Read fat-water swap record to avoid repeated reading at the end

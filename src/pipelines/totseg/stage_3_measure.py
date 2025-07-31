@@ -14,9 +14,9 @@ import pydmr
 from radiomics import featureextractor
 from totalsegmentator.map_to_binary import class_map
 
-datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-maskpath = os.path.join(os.getcwd(), 'build', 'totseg_1_segment')
-measurepath = os.path.join(os.getcwd(), 'build', 'totseg_6_measure')
+datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data')
+maskpath = os.path.join(os.getcwd(), 'build', 'totseg', 'stage_1_segment')
+measurepath = os.path.join(os.getcwd(), 'build', 'totseg', 'stage_3_measure')
 os.makedirs(measurepath, exist_ok=True)
 
 # Set up logging
@@ -341,9 +341,9 @@ def radiomics_texture_features(roi_vol, img_vol, roi, img):
 
 def bari():
 
-    sitedatapath = os.path.join(datapath, "BEAt-DKD-WP4-Bari", "Bari_Patients") 
-    sitemaskpath = os.path.join(maskpath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
-    sitemeasurepath = os.path.join(measurepath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
+    sitedatapath = os.path.join(datapath, "Patients", "Bari") 
+    sitemaskpath = os.path.join(maskpath, "Patients", "Bari")
+    sitemeasurepath = os.path.join(measurepath, "Patients", "Bari")
 
     all_mask_series = db.series(sitemaskpath)
     for mask_series in tqdm(all_mask_series, desc='Extracting metrics'):
@@ -427,7 +427,7 @@ def bari():
 
 
 def bari_concat():
-    sitemeasurepath = os.path.join(measurepath, "BEAt-DKD-WP4-Bari", "Bari_Patients")
+    sitemeasurepath = os.path.join(measurepath, "Patients", "Bari")
     # Concatenate all dmr files of each subject
     patients = [f.path for f in os.scandir(sitemeasurepath) if f.is_dir()]
     for patient in patients:
@@ -437,12 +437,3 @@ def bari_concat():
         dmr_file = os.path.join(sitemeasurepath, f'{patient}_results')
         pydmr.concat(dmr_files, dmr_file)
 
-
-def all():
-    bari()
-    bari_concat()
-
-
-if __name__=='__main__':
-    #bari()
-    bari_concat() # need to make separate folders per Dixon mask

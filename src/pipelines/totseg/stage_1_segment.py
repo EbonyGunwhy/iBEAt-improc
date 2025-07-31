@@ -6,11 +6,11 @@ import dbdicom as db
 import miblab
 import torch
 
-import utils.data
+from utils import data
 
 
-datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data') 
-maskpath = os.path.join(os.getcwd(), 'build', 'totseg_1_segment') 
+datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data') 
+maskpath = os.path.join(os.getcwd(), 'build', 'totseg', 'stage_1_segment') 
 os.makedirs(maskpath, exist_ok=True)
 
 
@@ -22,14 +22,18 @@ logging.basicConfig(
 )
 
 
-def segment_site(site, batch_size=None):
+def segment(group, site=None, batch_size=None):
 
-    sitedatapath = os.path.join(datapath, site, "Patients") 
-    sitemaskpath = os.path.join(maskpath, site, "Patients")
+    if site is None:
+        sitedatapath = os.path.join(datapath, group)
+        sitemaskpath = os.path.join(maskpath, group)
+    else:
+        sitedatapath = os.path.join(datapath, group, site)
+        sitemaskpath = os.path.join(maskpath, group, site)
     os.makedirs(sitemaskpath, exist_ok=True)
 
     # List of selected dixon series
-    record = utils.data.dixon_record()
+    record = data.dixon_record()
 
     # Get out phase series
     series = db.series(sitedatapath)
@@ -46,7 +50,7 @@ def segment_site(site, batch_size=None):
         sequence = series_op_desc[:-10]
 
         # Skip if it is not the right sequence
-        selected_sequence = utils.data.dixon_series_desc(record, patient, study)
+        selected_sequence = data.dixon_series_desc(record, patient, study)
         if sequence != selected_sequence:
             continue
 
@@ -82,16 +86,7 @@ def segment_site(site, batch_size=None):
                 return
 
 
-def all():
-    segment_site('Sheffield')
-    segment_site('Leeds')
-    segment_site('Bari')
 
-
-if __name__=='__main__':
-    segment_site('Sheffield')
-    segment_site('Leeds')
-    segment_site('Bari')
     
     
     

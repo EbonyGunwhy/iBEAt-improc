@@ -2,7 +2,7 @@ import os
 
 from utils import xnat
 
-path = os.path.join(os.getcwd(), 'build', 'dce_1_download')  
+path = os.path.join(os.getcwd(), 'build', 'dce', 'stage_1_download')  
 os.makedirs(path, exist_ok=True)
 
 

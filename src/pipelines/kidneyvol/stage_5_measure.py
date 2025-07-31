@@ -10,10 +10,10 @@ import pydmr
 
 from utils import data, radiomics
 
-datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-automaskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_1_segment')
-editmaskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_3_edit')
-measurepath = os.path.join(os.getcwd(), 'build', 'kidneyvol_5_measure')
+datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data')
+automaskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol', 'stage_1_segment')
+editmaskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol', 'stage_3_edit')
+measurepath = os.path.join(os.getcwd(), 'build', 'kidneyvol', 'stage_5_measure')
 os.makedirs(measurepath, exist_ok=True)
 
 # Set up logging
@@ -24,11 +24,11 @@ logging.basicConfig(
 )
 
 
-def concat(site):
-    if site == 'Controls':
+def concat(group, site=None):
+    if group == 'Controls':
         sitemeasurepath = os.path.join(measurepath, "Controls") 
     else:   
-        sitemeasurepath = os.path.join(measurepath, site, "Patients")
+        sitemeasurepath = os.path.join(measurepath, "Patients", site)
     # Concatenate all dmr files of each subject
     patients = [f.path for f in os.scandir(sitemeasurepath) if f.is_dir()]
     for patient in patients:
@@ -40,18 +40,18 @@ def concat(site):
         shutil.rmtree(dir)
 
 
-def measure(site):
+def measure(group, site=None):
 
-    if site == 'Controls':
+    if group == 'Controls':
         sitedatapath = os.path.join(datapath, "Controls") 
         siteautomaskpath = os.path.join(automaskpath, "Controls")
         siteeditmaskpath = os.path.join(editmaskpath, "Controls")
         sitemeasurepath = os.path.join(measurepath, "Controls")         
     else:
-        sitedatapath = os.path.join(datapath, site, "Patients") 
-        siteautomaskpath = os.path.join(automaskpath, site, "Patients")
-        siteeditmaskpath = os.path.join(editmaskpath, site, "Patients")
-        sitemeasurepath = os.path.join(measurepath, site, "Patients")
+        sitedatapath = os.path.join(datapath, "Patients", site) 
+        siteautomaskpath = os.path.join(automaskpath, "Patients", site)
+        siteeditmaskpath = os.path.join(editmaskpath, "Patients", site)
+        sitemeasurepath = os.path.join(measurepath, "Patients", site)
 
     record = data.dixon_record()
     class_map = {1: "kidney_left", 2: "kidney_right"}
@@ -166,19 +166,3 @@ def measure(site):
         pydmr.write(dmr_file, dmr)
 
     concat(site)
-
-
-
-def all():
-    measure('Bari')
-    measure('Leeds')
-    measure('Sheffield')
-
-
-
-if __name__=='__main__':
-    # measure('Bari')
-    # measure('Leeds')
-    # measure('Sheffield')
-    # measure('Exeter')
-    measure('Controls')

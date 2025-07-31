@@ -14,8 +14,8 @@ import pydicom
 from utils.constants import SITE_IDS
 
 
-datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-data_qc_path = os.path.join(os.getcwd(), 'build', 'dixon_3_check')
+datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data')
+data_qc_path = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_3_check')
 os.makedirs(data_qc_path, exist_ok=True)
 
 
@@ -61,7 +61,7 @@ def check_fatwater_swap(site):
         sitedatapath = os.path.join(datapath, "Controls") 
         sitepngpath = os.path.join(data_qc_path, f'controls_fat_water_swap.png')
     else:
-        sitedatapath = os.path.join(datapath, site, "Patients") 
+        sitedatapath = os.path.join(datapath, "Patients", site) 
         sitepngpath = os.path.join(data_qc_path, f'{site}_fat_water_swap.png')
 
     # Skip if the site has no data yet.
@@ -151,7 +151,7 @@ def fatwater_swap_record_template(site):
     if site == 'Controls':
         sitedatapath = os.path.join(datapath, "Controls")
     else:
-        sitedatapath = os.path.join(datapath, site, "Patients")
+        sitedatapath = os.path.join(datapath, "Patients", site)
 
     csv_file = os.path.join(data_qc_path, 'fat_water_swap_record.csv')
 
@@ -183,7 +183,7 @@ def count_dixons(site):
     if site == 'Controls':
         sitedatapath = os.path.join(datapath, "Controls")
     else:
-        sitedatapath = os.path.join(datapath, site, "Patients")
+        sitedatapath = os.path.join(datapath, "Patients", site)
 
     # If the file already exists, don't run it again
     csv_file = os.path.join(data_qc_path, 'dixon_data.csv')
@@ -225,7 +225,7 @@ def demographics(group, site=None):
     if group == 'Controls':
         sitedatapath = os.path.join(datapath, group)
     else:
-        sitedatapath = os.path.join(datapath, site, group)
+        sitedatapath = os.path.join(datapath, group, site)
 
     # If the file already exists, don't run it again
     csv_file = os.path.join(data_qc_path, 'demographics.csv')

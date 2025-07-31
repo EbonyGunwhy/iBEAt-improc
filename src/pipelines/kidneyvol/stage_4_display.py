@@ -8,10 +8,10 @@ import dbdicom as db
 from utils import plot, data
 
 
-datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-automaskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_1_segment')
-editmaskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_3_edit')
-displaypath = os.path.join(os.getcwd(), 'build', 'kidneyvol_4_display')
+datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data')
+automaskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol', 'stage_1_segment')
+editmaskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol', 'stage_3_edit')
+displaypath = os.path.join(os.getcwd(), 'build', 'kidneyvol', 'stage_4_display')
 os.makedirs(displaypath, exist_ok=True)
 
 
@@ -60,17 +60,17 @@ def movie(sitedatapath, sitemaskpath, sitedisplaypath):
             logging.error(f"{patient_id} {sequence} error building movie: {e}")
 
 
-def mosaic(site):
-    if site == 'Controls':
+def mosaic(group, site=None):
+    if group == 'Controls':
         sitedatapath = os.path.join(datapath, "Controls") 
         siteautomaskpath = os.path.join(automaskpath, "Controls")
         siteeditmaskpath = os.path.join(editmaskpath, "Controls")
         sitedisplaypath = os.path.join(displaypath, "Controls")
     else:
-        sitedatapath = os.path.join(datapath, site, "Patients") 
-        siteautomaskpath = os.path.join(automaskpath, site, "Patients")
-        siteeditmaskpath = os.path.join(editmaskpath, site, "Patients")
-        sitedisplaypath = os.path.join(displaypath, site, "Patients")
+        sitedatapath = os.path.join(datapath, "Patients", site) 
+        siteautomaskpath = os.path.join(automaskpath, "Patients", site)
+        siteeditmaskpath = os.path.join(editmaskpath, "Patients", site)
+        sitedisplaypath = os.path.join(displaypath, "Patients", site)
     os.makedirs(sitedisplaypath, exist_ok=True)
 
     record = data.dixon_record()
@@ -111,10 +111,3 @@ def mosaic(site):
             plot.mosaic_overlay(op_arr, rois, png_file)
         except Exception as e:
             logging.error(f"{patient_id} {sequence} error building mosaic: {e}")
-
-
-
-
-if __name__ == '__main__':
-    # mosaic('Exeter')
-    mosaic('Controls')

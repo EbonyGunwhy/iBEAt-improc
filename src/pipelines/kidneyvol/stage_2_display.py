@@ -9,9 +9,9 @@ from utils import plot, data
 from utils.constants import SITE_IDS
 
 
-datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-maskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol_1_segment')
-displaypath = os.path.join(os.getcwd(), 'build', 'kidneyvol_2_display')
+datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data')
+maskpath = os.path.join(os.getcwd(), 'build', 'kidneyvol', 'stage_1_segment')
+displaypath = os.path.join(os.getcwd(), 'build', 'kidneyvol', 'stage_2_display')
 os.makedirs(displaypath, exist_ok=True)
 
 # Set up logging
@@ -22,16 +22,16 @@ logging.basicConfig(
 )
 
 
-def mosaic(site, group):
+def mosaic(group, site=None):
 
     if group == 'Controls':
         sitedatapath = os.path.join(datapath, "Controls") 
         sitemaskpath = os.path.join(maskpath, "Controls")
         sitedisplaypath = os.path.join(displaypath, "Controls")
     else:
-        sitedatapath = os.path.join(datapath, site, "Patients") 
-        sitemaskpath = os.path.join(maskpath, site, "Patients")
-        sitedisplaypath = os.path.join(displaypath, site, "Patients")
+        sitedatapath = os.path.join(datapath, "Patients", site) 
+        sitemaskpath = os.path.join(maskpath, "Patients", site)
+        sitedisplaypath = os.path.join(displaypath, "Patients", site)
     os.makedirs(sitedisplaypath, exist_ok=True)
 
     record = data.dixon_record()
@@ -47,8 +47,9 @@ def mosaic(site, group):
         series_op = [sitedatapath, patient_id, study, f'{sequence}_out_phase']
 
         # Skip if not in the right site
-        if patient_id[:4] not in SITE_IDS[site]:
-            continue
+        if site is not None:
+            if patient_id[:4] not in SITE_IDS[site]:
+                continue
 
         # Skip if file exists
         png_file = os.path.join(sitedisplaypath, f'{patient_id}_{study}_{sequence}.png')
@@ -67,22 +68,3 @@ def mosaic(site, group):
             plot.mosaic_overlay(op_arr, rois, png_file)
         except Exception as e:
             logging.error(f"{patient_id} {sequence} error building mosaic: {e}")
-
-
-
-
-
-def all():
-    mosaic('Bari', 'Patients')
-    mosaic('Leeds', 'Patients')
-    mosaic('Sheffield', 'Patients')
-    mosaic('Bordeaux', 'Patients')
-    mosaic('Controls', 'Patients')
-
-
-if __name__=='__main__':
-    # mosaic('Bari', 'Controls')
-    # mosaic('Leeds', 'Controls')
-    # mosaic('Bordeaux', 'Controls')
-    # mosaic('Turku', 'Controls')
-    mosaic('Exeter', 'Controls')

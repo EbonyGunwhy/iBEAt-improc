@@ -3,8 +3,8 @@ import os
 
 import dbdicom as db
 
-datapath = os.path.join(os.getcwd(), 'build', 'dixon_2_data')
-archivepath = target_dir = os.path.join("G:\\Shared drives", "iBEAt Build", "dixon_2_data")
+datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data')
+archivepath = target_dir = os.path.join("G:\\Shared drives", "iBEAt Build", "dixon", "stage_2_data")
 
 
 def archive_clean_dixons(site):
@@ -12,8 +12,8 @@ def archive_clean_dixons(site):
         sitedatapath = os.path.join(datapath, 'Controls')
         sitearchivepath = os.path.join(archivepath, 'Controls')
     else:
-        sitedatapath = os.path.join(datapath, site, 'Patients')
-        sitearchivepath = os.path.join(archivepath, site, 'Patients')
+        sitedatapath = os.path.join(datapath, 'Patients', site)
+        sitearchivepath = os.path.join(archivepath, 'Patients', site)
     db.archive(sitedatapath, sitearchivepath)
 
 

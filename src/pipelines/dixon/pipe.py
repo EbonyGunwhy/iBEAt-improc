@@ -16,14 +16,14 @@ dixon_3_check: perform checks on the database
 - Build summary csv with all sequences and counts
 """
 
-import dixon_1_download
-import dixon_2_data
-import dixon_3_check
-import kidneyvol_1_segment
+from pipelines.dixon import (
+    stage_1_download,
+    stage_2_data,
+    stage_3_check,
+)
 
-if __name__=='__main__':
-
-    dixon_2_data.exeter_patients('Baseline')
-    dixon_2_data.exeter_patients('Followup')
-    dixon_3_check.check_fatwater_swap('Exeter')
+def run():
+    stage_2_data.exeter_patients('Baseline')
+    stage_2_data.exeter_patients('Followup')
+    stage_3_check.check_fatwater_swap('Exeter')
 
