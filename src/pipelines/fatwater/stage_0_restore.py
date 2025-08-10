@@ -1,4 +1,5 @@
 import os
+import logging
 
 import dbdicom as db
 
@@ -18,5 +19,5 @@ def dixons(group, site=None):
 
 if __name__=='__main__':
 
-    dixons('Controls')
+    dixons('Bari')
 

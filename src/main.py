@@ -1,4 +1,5 @@
-from pipelines.totseg import pipe
+from pipelines.fatwater import pipe
+# from pipelines.dixon import pipe
 
 
 

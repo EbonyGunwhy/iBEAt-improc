@@ -20,10 +20,14 @@ from pipelines.dixon import (
     stage_1_download,
     stage_2_data,
     stage_3_check,
+    stage_4_archive
 )
 
 def run():
-    stage_2_data.exeter_patients('Baseline')
-    stage_2_data.exeter_patients('Followup')
-    stage_3_check.check_fatwater_swap('Exeter')
+    # stage_1_download.sheffield_patients()
+    # stage_2_data.sheffield()
+    # stage_2_data.exeter_patients('Baseline')
+    # stage_2_data.exeter_patients('Followup')
+    # stage_3_check.check_fatwater_swap('Exeter')
+    stage_4_archive.archive_clean_dixons('Sheffield')
 

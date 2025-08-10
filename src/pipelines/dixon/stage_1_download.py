@@ -91,6 +91,7 @@ def sheffield_patients():
         password=password,
         output_dir=path,
         project_id="BEAt-DKD-WP4-Sheffield",
+        #subject_label='IBE7128103', #tmp
         attr="series_description",
         value=[
             # Philips data
@@ -215,6 +216,7 @@ def bordeaux_patients_baseline():
         output_dir=path,
         project_id="BEAt-DKD-WP4-Bordeaux",
         subject_label="Bordeaux_Patients_Baseline",
+        # experiment_label='iBE-6128-005_baseline', # tmp
         attr="series_description",
         value=[
             "T1w_abdomen_dixon_cor_bh_opp", 
@@ -379,7 +381,7 @@ if __name__=='__main__':
    
     # leeds_patients()
     # bari_patients()
-    # sheffield_patients()
+    sheffield_patients()
     # turku_philips_patients()
     # bordeaux_patients_baseline()
     # bordeaux_patients_followup()
@@ -390,8 +392,8 @@ if __name__=='__main__':
     # leeds_setup()
     # leeds_volunteers()
     # bordeaux_volunteers()
-    exeter_volunteers()
-    exeter_setup()
+    # exeter_volunteers()
+    # exeter_setup()
     # turku_philips_repeatability()
     # turku_ge_repeatability()
     # turku_ge_setup()

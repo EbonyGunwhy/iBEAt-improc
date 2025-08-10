@@ -22,8 +22,8 @@ if __name__=='__main__':
     # archive_clean_dixons('Leeds')
     # archive_clean_dixons('Sheffield')
     # archive_clean_dixons('Bari')
-    # archive_clean_dixons('Bordeaux')
+    archive_clean_dixons('Bordeaux')
     # archive_clean_dixons('Exeter')
-    archive_clean_dixons('Controls')
+    # archive_clean_dixons('Controls')
     
 

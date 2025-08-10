@@ -74,7 +74,7 @@ import numpy as np
 
 def download_scans(
     xnat_url, username, password, output_dir, project_id,
-    subject_label=None, attr=None, value=None,
+    subject_label=None, experiment_label=None, attr=None, value=None,
 ):
     """
     Downloads all scan series with a given attribute value.
@@ -85,8 +85,10 @@ def download_scans(
         password (str): XNAT password.
         output_dir (str): Directory to store downloaded data.
         project_id (str): XNAT project ID.
-        project_label (str): XNAT subject label. If this is None, 
+        subject_label (str): XNAT subject label. If this is None, 
             all subjects are downloaded. Defaults to None.
+        experiment_label (str): XNAT experiment label. If this is None, 
+            all experiments are downloaded. Defaults to None.
         attr (str ro tuple of str): Attribute(s) to filter by (e.g. 'sequence').
         value: Desired value(s) for the attribute(s).
     """
@@ -126,6 +128,11 @@ def download_scans(
 
         for exp in tqdm(experiments, desc='Scanning experiments..'):
             exp_id = exp['ID']
+
+            # Continue if this experiment was not requested
+            if experiment_label is not None:
+                if exp['label'] != experiment_label:
+                    continue
 
             # Loop over the scans in the experiment
             scans_url = f"{xnat_url}/data/experiments/{exp_id}/scans?format=json"
