@@ -30,7 +30,7 @@ def run_totseg():
 
     group = 'Patients'
     sites = ['Bari', 'Bordeaux', 'Exeter', 'Leeds', 'Sheffield', 'Turku']
-    for site in ['Leeds']:
+    for site in ['Sheffield']:
         totseg.stage_0_restore.dixons(LOCALPATH, SHAREDPATH, group, site)
         totseg.stage_1_segment.segment(LOCALPATH, group, site)
         totseg.stage_2_display.mosaic(LOCALPATH, group, site)
