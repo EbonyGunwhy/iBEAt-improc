@@ -3,9 +3,9 @@ import os
 import dbdicom as db
 
 
-def dixons(group, site=None):
-    datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data')
-    archivepath = os.path.join("G:\\Shared drives", "iBEAt Build", "dixon", "stage_2_data")
+def dixons(local_path, shared_path, group, site=None):
+    datapath = os.path.join(local_path, 'dixon', 'stage_2_data')
+    archivepath = os.path.join(shared_path, "dixon", "stage_2_data")
     if group == 'Controls':
         sitedatapath = os.path.join(datapath, 'Controls')
         sitearchivepath = os.path.join(archivepath, 'Controls')
@@ -15,8 +15,4 @@ def dixons(group, site=None):
     db.restore(sitearchivepath, sitedatapath)
 
 
-
-if __name__=='__main__':
-
-    dixons('Controls')
 

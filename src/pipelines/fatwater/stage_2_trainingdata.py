@@ -9,6 +9,27 @@ import json
 from tqdm import tqdm
 import dbdicom as db
 
+def build_json(num_training):
+
+    trainingdatapath = os.path.join(os.getcwd(), 'build', 'fatwater', 'stage_2_trainingdata', 'nnUNet_raw')
+    database = os.path.join(trainingdatapath, "Dataset011_iBEAtFatWater")
+
+    # Build dataset.json file
+    json_data = { 
+        "channel_names": {  
+            "0": "out_phase", 
+            "1": "in_phase"
+        }, 
+        "labels": { 
+            "background": 0,
+            "water_dominant": 1
+        }, 
+        "numTraining": num_training, 
+        "file_ending": ".nii.gz"
+    }
+    json_file = os.path.join(database, 'dataset.json')
+    with open(json_file, 'w') as f:
+        json.dump(json_data, f, indent=2)
 
 
 def generate():
@@ -16,7 +37,7 @@ def generate():
     # Data and results paths
     datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data') 
     waterdompath = os.path.join(os.getcwd(), 'build', 'fatwater', 'stage_1_waterdom') 
-    trainingdatapath = os.path.join(os.getcwd(), 'build', 'fatwater', 'stage_2_trainingdata')
+    trainingdatapath = os.path.join(os.getcwd(), 'build', 'fatwater', 'stage_2_trainingdata', 'nnUNet_raw')
     os.makedirs(trainingdatapath, exist_ok=True)
 
     # Create the database folder structure
@@ -64,37 +85,22 @@ def generate():
 
         # Save the inphase/outphase volumes, and the corresponding mask, as niftis
         try:
-            db.to_nifti(series_op, file_op)
+            db.to_nifti(series_op, file_op, verbose=0)
         except Exception as e:
             logging.error(f"Case{case_id}, out_phase: {e}\n")
             continue
         try:
-            db.to_nifti(series_ip, file_ip)
+            db.to_nifti(series_ip, file_ip, verbose=0)
         except Exception as e:
             logging.error(f"Case{case_id}, in_phase: {e}\n")
             continue
         try:
-            db.to_nifti(series_mask, file_mask) 
+            db.to_nifti(series_mask, file_mask, verbose=0) 
         except Exception as e:
             logging.error(f"Case{case_id}, water_dominant: {e}\n")
             continue
         num_training += 1
 
-    # Build dataset.json file
-    json_data = { 
-        "channel_names": {  
-            "0": "out_phase", 
-            "1": "in_phase"
-        }, 
-        "labels": { 
-            "background": 0,
-            "water_dominant": 1
-        }, 
-        "numTraining": num_training, 
-        "file_ending": ".nii.gz"
-    }
-    json_file = os.path.join(database, 'dataset.json')
-    with open(json_file, 'w') as f:
-        json.dump(json_data, f, indent=2)
+    build_json(num_training)
 
 

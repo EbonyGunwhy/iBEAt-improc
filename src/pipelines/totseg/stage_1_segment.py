@@ -1,5 +1,5 @@
 import os
-import logging
+
 
 import numpy as np
 import dbdicom as db
@@ -9,20 +9,12 @@ import torch
 from utils import data
 
 
-datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data') 
-maskpath = os.path.join(os.getcwd(), 'build', 'totseg', 'stage_1_segment') 
-os.makedirs(maskpath, exist_ok=True)
 
+def segment(build_path, group, site=None, batch_size=None):
 
-# Set up logging
-logging.basicConfig(
-    filename=os.path.join(maskpath, 'error.log'),
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-
-
-def segment(group, site=None, batch_size=None):
+    datapath = os.path.join(build_path, 'dixon', 'stage_2_data') 
+    maskpath = os.path.join(build_path, 'totseg', 'stage_1_segment') 
+    os.makedirs(maskpath, exist_ok=True)
 
     if site is None:
         sitedatapath = os.path.join(datapath, group)

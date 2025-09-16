@@ -2107,11 +2107,11 @@ def exeter_repeatability():
 
         # Get a standardized ID from the folder name
         desc = {
-            'TE37-001_V1': ('3128_C03', 'Visit1'),
-            'TE37-001_V2': ('3128_C03', 'Visit2'),
-            'TE37-001_V3': ('3128_C03', 'Visit3'),
-            'TE37-001_V4': ('3128_C03', 'Visit4'),
-            'TE37-001_V5': ('3128_C03', 'Visit5'),
+            'TE37-001_V1': ('3128_C01', 'Visit3'),
+            'TE37-001_V2': ('3128_C01', 'Visit4'),
+            'TE37-001_V3': ('3128_C01', 'Visit5'),
+            'TE37-001_V4': ('3128_C01', 'Visit6'),
+            'TE37-001_V5': ('3128_C01', 'Visit7'),
         }
         desc = desc[os.path.basename(patient)]
         pat_id = desc[0]

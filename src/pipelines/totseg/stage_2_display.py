@@ -1,5 +1,4 @@
 import os
-import logging
 
 import numpy as np
 from tqdm import tqdm
@@ -10,21 +9,16 @@ from utils import plot, data
 from utils.constants import SITE_IDS
 
 
-datapath = os.path.join(os.getcwd(), 'build', 'dixon', 'stage_2_data')
-maskpath = os.path.join(os.getcwd(), 'build', 'totseg', 'stage_1_segment')
-displaypath = os.path.join(os.getcwd(), 'build', 'totseg', 'stage_2_display')
-os.makedirs(displaypath, exist_ok=True)
-
-# Set up logging
-logging.basicConfig(
-    filename=os.path.join(displaypath, 'error.log'),
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 
 
-def WIP_movie(group, site=None,
+def WIP_movie(build_path, group, site=None,
         kidney=False, all=False, liver_pancreas=False):
+    
+    datapath = os.path.join(build_path, 'dixon', 'stage_2_data')
+    maskpath = os.path.join(build_path, 'totseg', 'stage_1_segment')
+    displaypath = os.path.join(build_path, 'totseg', 'stage_2_display')
+    os.makedirs(displaypath, exist_ok=True)
+
     
     if site is None:
         sitedatapath = os.path.join(datapath, group)
@@ -85,7 +79,12 @@ def WIP_movie(group, site=None,
                 plot.movie_overlay(op_arr, rois_pl, file)
 
 
-def mosaic(group, site=None, organs=None):
+def mosaic(build_path, group, site=None, organs=None):
+
+    datapath = os.path.join(build_path, 'dixon', 'stage_2_data')
+    maskpath = os.path.join(build_path, 'totseg', 'stage_1_segment')
+    displaypath = os.path.join(build_path, 'totseg', 'stage_2_display')
+    os.makedirs(displaypath, exist_ok=True)
     
     if site is None:
         sitedatapath = os.path.join(datapath, group)

@@ -10,3 +10,5 @@ pyradiomics
 moviepy
 scipy
 napari[all]
+nnunetv2
+google-cloud-aiplatform
