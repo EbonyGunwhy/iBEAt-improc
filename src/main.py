@@ -1,7 +1,9 @@
 import os
 
 import logging
-from pipelines import totseg
+
+from utils import export
+
 
 
 LOCALPATH = os.path.join(os.getcwd(), 'build')
@@ -16,29 +18,12 @@ logging.basicConfig(
 )
 
 
-def run_totseg():
+def export_antaros():
+    input_file = "C:\\Users\\md1spsx\\Downloads\\BEAt_DKD_Interim_20231016.csv"
+    export.antaros_to_redcap(input_file, LOCALPATH)
 
-    # Define input and outputh paths here
-
-    # group = 'Controls'
-    # totseg.stage_0_restore.dixons(LOCALPATH, group)
-    # totseg.stage_1_segment.segment(group)
-    # totseg.stage_2_display.mosaic(group)
-    # totseg.stage_2_display.mosaic(group, organs=['pancreas', 'liver'])
-    # totseg.stage_4_archive.autosegmentation(LOCALPATH, SHAREDPATH, group)
-    # totseg.stage_4_archive.displays(LOCALPATH, SHAREDPATH, group)
-
-    group = 'Patients'
-    sites = ['Bari', 'Bordeaux', 'Exeter', 'Leeds', 'Sheffield', 'Turku']
-    for site in ['Sheffield', 'Turku']:
-        totseg.stage_0_restore.dixons(LOCALPATH, SHAREDPATH, group, site)
-        totseg.stage_1_segment.segment(LOCALPATH, group, site)
-        totseg.stage_2_display.mosaic(LOCALPATH, group, site)
-        # totseg.stage_2_display.mosaic(LOCALPATH, group, site, organs=['pancreas', 'liver'])
-        totseg.stage_4_archive.autosegmentation(LOCALPATH, SHAREDPATH, group, site)
-        totseg.stage_4_archive.displays(LOCALPATH, SHAREDPATH, group, site)
 
 
 
 if __name__ == '__main__':
-    run_totseg()
+    export_antaros()
